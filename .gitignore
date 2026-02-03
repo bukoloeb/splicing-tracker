@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+*.class
+venv/
+.venv/
+.env
+
+# Node / JS
+node_modules/
+dist/
+
+# System / IDE
+.DS_Store
+.vscode/
+.idea/
+
+# Large data/logs
+*.log
+*.sqlite3

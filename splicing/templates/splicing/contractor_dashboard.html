@@ -1,0 +1,154 @@
+{% extends 'base.html' %}
+{% load humanize %}
+{% load splicing_filters %}
+
+{% block title %}Contractor Dashboard | Splicing Tracker{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+    {# --- Header Section --- #}
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+            <h1 class="text-3xl font-extrabold text-gray-900 tracking-tight">
+                <span class="text-indigo-600">{{ contractor_company|default:"Contractor" }}</span> Workload
+            </h1>
+            <p class="text-sm text-gray-500 mt-1">Manage and update progress on assigned fiber splicing projects.</p>
+        </div>
+        <div class="text-right">
+            <span class="text-[10px] font-black uppercase tracking-widest text-gray-400">Current Date</span>
+            <p class="text-sm font-bold text-gray-700">{% now "F j, Y" %}</p>
+        </div>
+    </div>
+
+    {# --- 1. KPI Cards (Consistent with Manager Dashboard) --- #}
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm transition hover:shadow-md">
+            <div class="flex justify-between items-start">
+                <div>
+                    <p class="text-xs font-bold text-gray-400 uppercase tracking-wider">Total Assigned</p>
+                    <p class="text-3xl font-black text-gray-800 mt-1">{{ jobs_total }}</p>
+                </div>
+                <div class="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
+                    <i class="fas fa-briefcase"></i>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm transition hover:shadow-md">
+            <div class="flex justify-between items-start">
+                <div>
+                    <p class="text-xs font-bold text-gray-400 uppercase tracking-wider">In Progress</p>
+                    <p class="text-3xl font-black text-gray-800 mt-1">{{ jobs_in_progress }}</p>
+                </div>
+                <div class="p-2 bg-yellow-50 text-yellow-600 rounded-lg">
+                    <i class="fas fa-spinner fa-spin-slow"></i>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm transition hover:shadow-md">
+            <div class="flex justify-between items-start">
+                <div>
+                    <p class="text-xs font-bold text-gray-400 uppercase tracking-wider">Completed Today</p>
+                    <p class="text-3xl font-black text-gray-800 mt-1">{{ jobs_completed_today }}</p>
+                </div>
+                <div class="p-2 bg-green-50 text-green-600 rounded-lg">
+                    <i class="fas fa-calendar-check"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# --- 2. Job Inventory Table (Data-Grid Style) --- #}
+    <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <div class="p-5 border-b border-gray-100 bg-gray-50/50">
+            <h3 class="font-bold text-gray-800 flex items-center">
+                <i class="fas fa-list-ul mr-2 text-gray-400"></i> Active Assignments
+            </h3>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-gray-50 text-[10px] uppercase tracking-widest text-gray-400 border-b border-gray-100">
+                        <th class="px-6 py-4 font-bold">Ref / Customer</th>
+                        <th class="px-6 py-4 font-bold">City / Project</th>
+                        <th class="px-6 py-4 font-bold text-center">Priority</th>
+                        <th class="px-6 py-4 font-bold">Status</th>
+                        <th class="px-6 py-4 font-bold text-right">Action</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-50 text-sm">
+                    {% for job in jobs %}
+                    <tr class="hover:bg-gray-50/50 transition">
+                        <td class="px-6 py-4">
+                            <a href="{% url 'job_detail' job_id=job.job_id %}" class="block font-bold text-indigo-600 hover:text-indigo-800">
+                                {{ job.job_id }}
+                            </a>
+                            <span class="text-[10px] text-gray-400 uppercase tracking-tighter">
+                                {{ job.customer_name|default:"General Project"|truncatechars:20 }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4">
+                            <div class="text-xs font-semibold text-gray-700">{{ job.city }}</div>
+                            <div class="text-[10px] text-gray-400">{{ job.project_code }}</div>
+                        </td>
+                        <td class="px-6 py-4 text-center">
+                            {% if job.priority == 1 %}
+                                <span class="px-2.5 py-1 text-[10px] font-black rounded-md bg-red-100 text-red-700 uppercase">High</span>
+                            {% elif job.priority == 2 %}
+                                <span class="px-2.5 py-1 text-[10px] font-black rounded-md bg-yellow-100 text-yellow-700 uppercase">Med</span>
+                            {% else %}
+                                <span class="px-2.5 py-1 text-[10px] font-black rounded-md bg-green-100 text-green-700 uppercase">Low</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4">
+                            {% if job.status == 'CLOSED_ARCHIVED' %}
+                                <span class="inline-flex items-center px-2 py-1 bg-gray-100 text-gray-500 text-[10px] font-bold rounded uppercase">
+                                    <i class="fas fa-archive mr-1"></i> Archived
+                                </span>
+                            {% else %}
+                                <span class="px-2 py-1 bg-indigo-50 text-indigo-700 text-[10px] font-bold rounded uppercase">
+                                    {{ job.get_status_display }}
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 text-right">
+                            {% if job.status != 'CLOSED_ARCHIVED' and job.status != 'JOB_PROVISIONED' %}
+                                <a href="{% url 'contractor_status_update' job_id=job.job_id %}"
+                                   class="inline-flex items-center px-3 py-1.5 bg-green-600 text-white text-xs font-bold rounded-lg hover:bg-green-700 transition shadow-sm">
+                                    Update
+                                </a>
+                            {% else %}
+                                <a href="{% url 'job_detail' job_id=job.job_id %}" class="text-xs font-bold text-gray-400 hover:text-indigo-600 transition">
+                                    View Details
+                                </a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="px-6 py-16 text-center">
+                            <div class="flex flex-col items-center">
+                                <i class="fas fa-inbox text-4xl text-gray-200 mb-3"></i>
+                                <p class="text-gray-400 italic">No assigned jobs found in your queue.</p>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<style>
+    @keyframes spin-slow {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+    .fa-spin-slow {
+        animation: spin-slow 3s linear infinite;
+    }
+</style>
+{% endblock content %}

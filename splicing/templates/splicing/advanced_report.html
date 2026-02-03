@@ -1,0 +1,219 @@
+{% extends "base.html" %}
+{% load static %}
+{% load humanize %}
+{% load splicing_filters %}
+
+{% block title %}Advanced Job Performance Report{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <h1 class="text-3xl font-bold mb-6 text-gray-800">📊 Advanced Job Performance Report</h1>
+
+    <div class="bg-blue-50 border-l-4 border-blue-400 text-blue-700 p-4 mb-6">
+        <p class="font-bold">Admin Level Access</p>
+        <p>Comprehensive workload metrics for Internal Staff and External Contractors.</p>
+    </div>
+
+    {# --- 1. SUMMARY METRICS --- #}
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+        <div class="bg-white p-5 rounded-lg shadow border-l-4 border-green-500">
+            <p class="text-sm font-medium text-gray-500">Completed Today</p>
+            <p class="text-2xl font-bold text-gray-900 mt-1">{{ metrics.completed_today|default:"0" }}</p>
+        </div>
+        <div class="bg-white p-5 rounded-lg shadow border-l-4 border-green-400">
+            <p class="text-sm font-medium text-gray-500">Completed WTD</p>
+            <p class="text-2xl font-bold text-gray-900 mt-1">{{ metrics.completed_wtd|default:"0" }}</p>
+        </div>
+        <div class="bg-white p-5 rounded-lg shadow border-l-4 border-green-300">
+            <p class="text-sm font-medium text-gray-500">Completed MTD</p>
+            <p class="text-2xl font-bold text-gray-900 mt-1">{{ metrics.completed_mtd|default:"0" }}</p>
+        </div>
+        <div class="bg-white p-5 rounded-lg shadow border-l-4 border-red-500">
+            <p class="text-sm font-medium text-gray-500">Pending Jobs</p>
+            <p class="text-2xl font-bold text-gray-900 mt-1">{{ metrics.pending_total|default:"0" }}</p>
+        </div>
+        <div class="bg-white p-5 rounded-lg shadow border-l-4 border-yellow-500">
+            <p class="text-sm font-medium text-gray-500">In Progress</p>
+            <p class="text-2xl font-bold text-gray-900 mt-1">{{ metrics.in_progress_total|default:"0" }}</p>
+        </div>
+    </div>
+
+    {# --- 2. VISUALIZATION & ASSIGNMENT --- #}
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        <div class="lg:col-span-2 bg-white p-6 rounded-lg shadow">
+            <h3 class="text-lg font-semibold mb-4 text-gray-700">Job Status Distribution</h3>
+            <div class="relative h-72">
+                <canvas id="statusChart"></canvas>
+            </div>
+        </div>
+
+        {# COLUMN 3: Workload Capacity Table #}
+        <div class="bg-white p-6 rounded-lg shadow overflow-hidden">
+            <h3 class="text-lg font-semibold mb-4 text-gray-700">Assignment Workload</h3>
+            <div class="max-h-96 overflow-y-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Resource</th>
+                            <th class="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase">Orders</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% for item in assignment_data %}
+                        <tr>
+                            <td class="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">
+                                {{ item.display_name }}
+                                {% if item.is_contractor %}
+                                    <span class="ml-1 px-1 text-[10px] bg-gray-100 text-gray-500 rounded font-bold">CON</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-3 py-2 text-center whitespace-nowrap text-sm text-gray-500">
+                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-indigo-100 text-indigo-800">
+                                    {{ item.assigned_count }}
+                                </span>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="2" class="px-3 py-2 text-center text-gray-500">No active assignments found.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    {# --- SECONDARY CHARTS --- #}
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <div class="bg-white p-6 rounded-lg shadow">
+            <h3 class="text-lg font-semibold mb-4 text-gray-700">Completion Breakdown</h3>
+            <div class="relative h-72">
+                <canvas id="pieChart"></canvas>
+            </div>
+        </div>
+        <div class="bg-white p-6 rounded-lg shadow">
+            <h3 class="text-lg font-semibold mb-4 text-gray-700">Monthly Trend</h3>
+            <div class="relative h-72">
+                <canvas id="trendChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    {# --- FILTERS & EXPORT --- #}
+    <div class="bg-white shadow-md p-5 rounded-lg mb-6 border border-gray-200">
+        <div class="flex flex-col md:flex-row justify-between items-center gap-4">
+            <div class="flex space-x-2">
+                <button id="export-excel" class="px-4 py-2 bg-teal-500 text-white rounded-md text-sm hover:bg-teal-600">Excel</button>
+                <button id="export-pdf" class="px-4 py-2 bg-red-500 text-white rounded-md text-sm hover:bg-red-600">PDF</button>
+            </div>
+            <form method="get" class="flex flex-col sm:flex-row gap-2">
+                <input type="text" name="job_id" class="p-2 border rounded-md text-sm" placeholder="Search..." value="{{ request.GET.job_id|default:'' }}">
+                {% if filter_form %} {{ filter_form.assigned_fe }} {% endif %}
+                <select name="status" class="p-2 border rounded-md text-sm">
+                    <option value="">Status</option>
+                    {% for value, label in SplicingJob_STATUS_CHOICES %}
+                        <option value="{{ value }}" {% if request.GET.status == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+                <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-md text-sm">Filter</button>
+            </form>
+        </div>
+    </div>
+
+    {# --- DETAILED TABLE --- #}
+    <div class="bg-white p-6 rounded-lg shadow overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Job ID</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Technician / Contractor</th>
+                        <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Created</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for job in job_list %}
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-indigo-600">
+                            <a href="{% url 'job_detail' job.job_id %}">{{ job.job_id }}</a>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {% if job.assigned_fe %}
+                                {{ job.assigned_fe.get_full_name|default:job.assigned_fe.username }}
+                            {% else %}
+                                {{ job.splicing_contractor_company|default:"Unassigned" }}
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-center text-sm">
+                            <span class="px-2 py-1 rounded-full text-xs font-semibold
+                                {% if job.status == 'CLOSED_ARCHIVED' %}bg-green-100 text-green-800
+                                {% elif job.status == 'IN_PROGRESS' %}bg-yellow-100 text-yellow-800
+                                {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                {{ job.get_status_display }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-500">
+                            {{ job.start_date|date:"Y-m-d" }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{# JSON Data Scripts #}
+{{ status_distribution|json_script:"status_distribution_data" }}
+{{ completion_breakdown|json_script:"completion_breakdown_data" }}
+{{ completion_trend|json_script:"completion_trend_data" }}
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.0/dist/chart.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const loadData = (id) => JSON.parse(document.getElementById(id).textContent);
+
+        const statusData = loadData('status_distribution_data');
+        const breakdownData = loadData('completion_breakdown_data');
+        const trendData = loadData('completion_trend_data');
+
+        // Status Chart
+        new Chart(document.getElementById('statusChart').getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: statusData.map(d => d.status),
+                datasets: [{ label: 'Jobs', data: statusData.map(d => d.count), backgroundColor: '#4c51bf' }]
+            },
+            options: { responsive: true, maintainAspectRatio: false }
+        });
+
+        // Pie Chart
+        new Chart(document.getElementById('pieChart').getContext('2d'), {
+            type: 'doughnut',
+            data: {
+                labels: breakdownData.map(d => d.label),
+                datasets: [{ data: breakdownData.map(d => d.count), backgroundColor: ['#38a169', '#e53e3e'] }]
+            },
+            options: { responsive: true, maintainAspectRatio: false }
+        });
+
+        // Trend Chart
+        new Chart(document.getElementById('trendChart').getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: trendData.map(d => d.month),
+                datasets: [
+                    { label: 'Received', data: trendData.map(d => d.received), borderColor: '#3182ce', fill: false },
+                    { label: 'Completed', data: trendData.map(d => d.completed), borderColor: '#38b2ac', fill: false }
+                ]
+            },
+            options: { responsive: true, maintainAspectRatio: false }
+        });
+
+        // Exports
+        const query = window.location.search;
+        document.getElementById('export-excel').onclick = () => window.location.href = '{% url "export_excel" %}' + query;
+        document.getElementById('export-pdf').onclick = () => window.location.href = '{% url "export_pdf" %}' + query;
+    });
+</script>
+{% endblock %}

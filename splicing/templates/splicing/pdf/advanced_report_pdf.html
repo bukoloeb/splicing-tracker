@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Splicing Job Report - {{ date }}</title>
+
+    <style>
+        /* General Layout and Typography */
+        body {
+            font-family: sans-serif;
+            margin: 0;
+            padding: 0;
+            /* CRITICAL FIX: Shrink base font size for better density */
+            font-size: 9pt;
+        }
+
+        /* Content Container */
+        .content-wrap {
+            /* CRITICAL FIX: Reduce internal padding to maximize table space */
+            padding: 0.3cm;
+        }
+
+        /* Header Styling */
+        h1 {
+            color: #3182ce;
+            border-bottom: 2px solid #ddd;
+            padding-bottom: 5px;
+            margin-bottom: 10px; /* Reduced margin */
+            font-size: 14pt; /* Reduced size */
+        }
+
+        /* Table Styling */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px; /* Reduced margin */
+            font-size: 8pt; /* CRITICAL FIX: Further reduced table font size */
+            table-layout: fixed; /* CRITICAL FIX: Ensures columns respect defined widths */
+        }
+        th, td {
+            border: 1px solid #ccc;
+            /* CRITICAL FIX: Minimize cell padding */
+            padding: 3px 4px;
+            text-align: left;
+            /* CRITICAL FIX: Force long text to wrap */
+            word-wrap: break-word;
+            overflow: hidden;
+        }
+        th {
+            background-color: #f7f7f7;
+            font-size: 8pt;
+            font-weight: bold;
+        }
+
+        /* CRITICAL FIX: Column Width Distribution */
+        .col-id { width: 12%; } /* Job ID: Slightly increased as it's fixed length */
+        .col-project { width: 30%; } /* Customer/Project: Max width, needs most space */
+        .col-assigned { width: 18%; } /* Assigned To: Should fit a username */
+        .col-status { width: 15%; text-align: center; } /* Status: Needs minimal space */
+        .col-priority { width: 10%; text-align: center; } /* Priority: Needs minimal space */
+        .col-date { width: 15%; } /* Created Date: Needs minimal space */
+
+        /* Status Badges - Keep existing styles */
+        .status-badge {
+            display: block; /* CRITICAL FIX: Use block/inline-block to ensure it stays in the cell */
+            padding: 1px 2px; /* Minimal padding */
+            border-radius: 3px;
+            font-size: 7pt; /* Tiny font */
+            font-weight: 600;
+            text-transform: uppercase;
+            white-space: normal; /* Allow wrapping */
+        }
+
+        .status-JOB_PROVISIONED { background-color: #a7f3d0; color: #065f46; }
+        .status-SERVICE_DELIVERY_PENDING { background-color: #faf089; color: #975a16; }
+        .status-JOB_IN_PROGRESS { background-color: #fbd38d; color: #975a16; }
+        .status-FE_ASSIGNED { background-color: #a0aec0; color: #2d3748; }
+        .status-MANAGER_ASSIGNED { background-color: #fed7e2; color: #805ad5; }
+        .status-JOB_CLOSED_ARCHIVED { background-color: #cbd5e0; color: #4a5568; }
+
+    </style>
+</head>
+<body>
+    <div class="content-wrap">
+        <header>
+            <h1>Advanced Splicing Job Performance Report</h1>
+            <p style="font-size: 9pt; margin-bottom: 5px;">Report Date: {{ date }}</p>
+            <p style="font-size: 8pt; color: #666;">
+                Filters Applied:
+                {% if request.GET.job_id %}Job/Customer Search: "{{ request.GET.job_id }}", {% endif %}
+                {% if request.GET.status %}Status: "{{ status_label }}"{% endif %}
+                {% if not request.GET %}Default: Top 50 Most Recent Jobs{% endif %}
+            </p>
+        </header>
+
+        <table>
+            <thead>
+                <tr>
+                    <th class="col-id">Job ID</th>
+                    <th class="col-project">Customer / Project</th>
+                    <th class="col-assigned">Assigned To</th>
+                    <th class="col-status">Status</th>
+                    <th class="col-priority">Priority</th>
+                    <th class="col-date">Created Date</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for job in job_list %}
+                <tr>
+                    <td>{{ job.job_id }}</td>
+                    <td>{{ job.customer_name|default:"N/A" }} ({{ job.project_code|default:"N/A" }})</td>
+                    <td>{{ job.assigned_fe.username|default:"Unassigned" }}</td>
+                    <td class="col-status">
+                        <span class="status-badge status-{{ job.status }}">
+                            {{ job.get_status_display }}
+                        </span>
+                    </td>
+                    <td class="col-priority">{{ job.get_priority_display }}</td>
+                    <td>{{ job.start_date|date:"Y-m-d" }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" style="text-align: center;">No Splicing Jobs found matching the current criteria.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>

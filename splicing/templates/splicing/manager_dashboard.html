@@ -1,0 +1,116 @@
+{% extends 'base.html' %}
+{% load splicing_filters %}
+
+{% block content %}
+<div class="space-y-6">
+    {# --- HEADER --- #}
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+            <h2 class="text-3xl font-extrabold text-gray-900 tracking-tight">Manager Dashboard</h2>
+            <p class="text-sm text-gray-500 mt-1">Resource allocation and pipeline oversight.</p>
+        </div>
+    </div>
+
+    {# --- KPI CARDS --- #}
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
+            <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">MTD Completed</p>
+            <p class="text-3xl font-black text-indigo-600 mt-1">{{ metrics.mtd }}</p>
+        </div>
+        <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
+            <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">WTD Completed</p>
+            <p class="text-3xl font-black text-slate-800 mt-1">{{ metrics.wtd }}</p>
+        </div>
+        <div class="bg-amber-50 p-5 rounded-xl border border-amber-100 shadow-sm">
+            <p class="text-[10px] font-bold text-amber-600 uppercase tracking-widest">Pending Assign</p>
+            <p class="text-3xl font-black text-amber-700 mt-1">{{ pending_assignment }}</p>
+        </div>
+        <div class="bg-slate-900 p-5 rounded-xl shadow-lg">
+            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Active In Field</p>
+            <p class="text-3xl font-black text-white mt-1">{{ active_splicing }}</p>
+        </div>
+    </div>
+
+    {# --- WORKLOAD SECTION --- #}
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+            <h3 class="text-xs font-black text-gray-400 uppercase mb-4 tracking-widest flex items-center">
+                <i class="fas fa-users-cog mr-2"></i> Internal FE Workload
+            </h3>
+            <div class="space-y-3">
+                {% for engineer in fe_active_workload %}
+                <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg border border-gray-100">
+                    <span class="text-sm font-bold text-gray-700">{{ engineer.get_full_name|default:engineer.username }}</span>
+                    <span class="px-2.5 py-1 bg-indigo-600 text-white text-[10px] font-black rounded-full">{{ engineer.job_count }}</span>
+                </div>
+                {% empty %}
+                <p class="text-xs text-gray-400 italic">No active internal assignments.</p>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+            <h3 class="text-xs font-black text-gray-400 uppercase mb-4 tracking-widest flex items-center">
+                <i class="fas fa-hard-hat mr-2"></i> Contractor Workload
+            </h3>
+            <div class="space-y-3">
+                {% for item in contractor_workload %}
+                <div class="flex justify-between items-center p-3 bg-slate-50 rounded-lg border border-slate-100">
+                    <span class="text-sm font-bold text-slate-700">{{ item.splicing_contractor_company }}</span>
+                    <span class="px-2.5 py-1 bg-slate-700 text-white text-[10px] font-black rounded-full">{{ item.job_count }}</span>
+                </div>
+                {% empty %}
+                <p class="text-xs text-gray-400 italic">No active contractor assignments.</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    {# --- MAIN JOBS TABLE --- #}
+    <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-100 bg-gray-50/50">
+            <h3 class="text-xs font-black text-gray-500 uppercase">Live Pipeline</h3>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left">
+                <thead>
+                    <tr class="text-[10px] uppercase font-bold text-gray-400 border-b border-gray-100">
+                        <th class="px-6 py-4">Job Info</th>
+                        <th class="px-6 py-4">Technician/Company</th>
+                        <th class="px-6 py-4">Status</th>
+                        <th class="px-6 py-4 text-right">Age</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-50">
+                    {% for job in jobs %}
+                    <tr class="hover:bg-gray-50/50 transition">
+                        <td class="px-6 py-4">
+                            <a href="{% url 'job_detail' job.job_id %}" class="font-bold text-gray-900 block hover:text-indigo-600">{{ job.customer_name }}</a>
+                            <span class="text-[10px] text-gray-400 font-mono">{{ job.job_id }}</span>
+                        </td>
+                        <td class="px-6 py-4 text-sm font-medium text-gray-600">
+                            {% if job.assigned_fe %}
+                                {{ job.assigned_fe.get_full_name }}
+                            {% else %}
+                                <span class="text-indigo-600">{{ job.splicing_contractor_company|default:"Unassigned" }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4">
+                            <span class="px-2 py-1 text-[10px] font-bold rounded uppercase
+                                {% if job.status == 'PROVISIONED' %}bg-green-100 text-green-700
+                                {% elif job.status == 'SD_PENDING' %}bg-blue-100 text-blue-700
+                                {% else %}bg-gray-100 text-gray-600{% endif %}">
+                                {{ job.get_status_display }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 text-right text-xs font-mono text-gray-500">
+                            {{ job.job_age.days }}d
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

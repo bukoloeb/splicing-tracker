@@ -1,0 +1,106 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+{% load humanize %}
+{% load splicing_filters %}
+
+{% block title %}Update Status | {{ object.job_id }}{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto py-6">
+
+    <div class="bg-white shadow-lg rounded-xl border border-gray-200 overflow-hidden">
+
+        {# --- 1. Compact Header --- #}
+        <div class="px-6 py-5 bg-gray-50 border-b border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+                <span class="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em]">Work Order Update</span>
+                <h2 class="text-2xl font-black text-gray-900 leading-tight">
+                    {{ object.job_id }} <span class="text-gray-400 font-light mx-1">|</span> {{ object.customer_name|default:"Unnamed Customer" }}
+                </h2>
+            </div>
+            <div class="flex items-center gap-3">
+                <span class="text-[10px] font-bold text-gray-400 uppercase">Status:</span>
+                <span class="px-3 py-1 text-xs font-black rounded-lg border {{ object.status|status_class_map }}">
+                    {{ object.get_status_display }}
+                </span>
+            </div>
+        </div>
+
+        <div class="p-6">
+
+            {# --- 2. Actionable Location Card (Cleaned up) --- #}
+            <div class="mb-8 bg-indigo-900 rounded-xl p-5 text-white shadow-inner relative overflow-hidden">
+                <i class="fas fa-map-marker-alt absolute -right-4 -bottom-4 text-7xl text-white/10"></i>
+
+                <h3 class="text-xs font-bold uppercase tracking-widest text-indigo-300 mb-3 flex items-center">
+                    <i class="fas fa-location-arrow mr-2"></i> Deployment Location
+                </h3>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-8">
+                    <div>
+                        <p class="text-[10px] uppercase text-indigo-200 font-bold">Street / Block</p>
+                        <p class="text-sm font-medium">{{ object.street_address|default:"Not Provided" }}</p>
+                    </div>
+                    <div>
+                        <p class="text-[10px] uppercase text-indigo-200 font-bold">City & Province</p>
+                        <p class="text-sm font-medium">{{ object.city }}, {{ object.province }}</p>
+                    </div>
+                    <div>
+                        <p class="text-[10px] uppercase text-indigo-200 font-bold">Zone / Neighbourhood</p>
+                        <p class="text-sm font-medium">{{ object.neighbourhood|default:"Standard Zone" }}</p>
+                    </div>
+                    <div>
+                        <p class="text-[10px] uppercase text-indigo-200 font-bold">Infrastructure Target</p>
+                        <p class="text-sm font-medium">
+                            <i class="fas fa-server text-[10px] mr-1 opacity-50"></i>
+                            {{ object.pop_location_fk.name|default:"N/A" }} / {{ object.switch_fk.name|default:"N/A" }}
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            {# --- 3. Update Form --- #}
+            <div class="bg-gray-50 rounded-xl p-6 border border-gray-100">
+                <form method="post" enctype="multipart/form-data" id="statusForm" class="space-y-5">
+                    {% csrf_token %}
+
+                    <div class="prose prose-sm max-w-none">
+                        <p class="text-xs text-gray-500 mb-4 font-medium italic">
+                            <i class="fas fa-info-circle mr-1"></i> Please ensure all technical documentation is attached before moving to "Completed".
+                        </p>
+                        {{ form|crispy }}
+                    </div>
+
+                    <div class="flex flex-col sm:flex-row justify-between items-center gap-4 pt-6 border-t border-gray-200">
+                        <a href="{% url 'job_detail' job_id=object.job_id %}"
+                           class="w-full sm:w-auto text-center px-6 py-2.5 text-xs font-bold text-gray-500 hover:text-gray-800 transition">
+                            <i class="fas fa-times mr-1"></i> Cancel Changes
+                        </a>
+
+                        <button type="submit" id="submitBtn"
+                                class="w-full sm:w-auto px-8 py-2.5 bg-indigo-600 text-white text-xs font-black rounded-lg hover:bg-indigo-700 shadow-md transition-all flex items-center justify-center">
+                            <span id="btnSpinner" class="hidden mr-2">
+                                <i class="fas fa-circle-notch fa-spin"></i>
+                            </span>
+                            <span id="btnText">CONFIRM UPDATE</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.getElementById('statusForm').onsubmit = function() {
+        const btn = document.getElementById('submitBtn');
+        const spinner = document.getElementById('btnSpinner');
+        const text = document.getElementById('btnText');
+
+        btn.disabled = true;
+        btn.classList.add('opacity-80', 'cursor-wait');
+        spinner.classList.remove('hidden');
+        text.innerText = 'SAVING...';
+    };
+</script>
+{% endblock %}

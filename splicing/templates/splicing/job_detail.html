@@ -1,0 +1,227 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load splicing_filters %}
+
+{% block title %}Job Details | {{ job.job_id }}{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto space-y-6 animate-fade-in">
+
+    {# --- 1. THE COMMAND HEADER --- #}
+    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+        <div class="flex flex-col md:flex-row">
+            {# Status Accent Bar #}
+            <div class="w-2 md:w-4 {% if job.status == 'COMPLETED' %}bg-green-500{% elif job.status == 'CLOSED_ARCHIVED' %}bg-gray-400{% else %}bg-indigo-600{% endif %}"></div>
+
+            <div class="p-6 flex-grow flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                <div>
+                    <div class="flex items-center gap-3 mb-2">
+                        <span class="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-600">Project Reference</span>
+                        <span class="px-2 py-0.5 bg-gray-100 text-gray-500 text-[9px] font-bold rounded">{{ job.job_id }}</span>
+                    </div>
+                    <h1 class="text-4xl font-black text-gray-900 tracking-tight leading-none">
+                        {{ job.customer_name|default:"Unnamed Customer" }}
+                    </h1>
+                    <div class="flex items-center gap-4 mt-3 text-sm font-bold text-gray-500">
+                        <span><i class="fas fa-map-marker-alt mr-1 text-indigo-500"></i> {{ job.city }}</span>
+                        <span class="text-gray-300">|</span>
+                        <span><i class="fas fa-layer-group mr-1 text-indigo-500"></i> {{ job.neighbourhood }}</span>
+                    </div>
+                </div>
+
+                <div class="flex flex-col items-end gap-2">
+                    <span class="px-4 py-2 text-xs font-black rounded-xl border-2 {{ job.status|status_class_map }} uppercase tracking-widest shadow-sm">
+                        {{ job.get_status_display }}
+                    </span>
+                    <div class="flex items-center gap-2">
+                        <span class="text-[10px] font-black text-gray-400 uppercase">Priority:</span>
+                        <span class="text-xs font-black {% if job.priority == 1 %}text-red-600{% else %}text-gray-700{% endif %}">
+                            {{ job.get_priority_display }}
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# --- 2. DYNAMIC ACTION PANEL (The "Next Step" Module) --- #}
+    <div class="bg-indigo-50 rounded-2xl border border-indigo-100 p-1">
+        <div class="bg-white rounded-xl p-6 shadow-sm border border-indigo-50">
+            <h2 class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4 flex items-center">
+                <i class="fas fa-terminal mr-2 text-indigo-500"></i> Required Actions
+            </h2>
+
+            <div class="flex flex-wrap gap-4">
+                {% if job.status != 'CLOSED_ARCHIVED' and job.status != 'CLOSED' %}
+
+                    {# Service Delivery Logic #}
+                    {% if is_service_delivery %}
+                        {% if job.status == 'SD_PENDING' %}
+                            <a href="{% url 'provisioning_job' job_id=job.job_id %}" class="btn-primary-glow px-8 py-3 bg-indigo-600 text-white font-black rounded-xl text-sm flex items-center gap-2">
+                                <i class="fas fa-network-wired"></i> INITIALIZE PROVISIONING
+                            </a>
+                        {% elif job.status == 'PROVISIONED' %}
+                            <a href="{% url 'provisioning_job' job_id=job.job_id %}" class="px-8 py-3 bg-white border-2 border-green-500 text-green-700 font-black rounded-xl text-sm flex items-center gap-2">
+                                <i class="fas fa-check-circle"></i> REVIEW CONFIGURATION
+                            </a>
+                        {% endif %}
+
+                    {# Field Engineer Logic #}
+                    {% elif is_fe and job.assigned_fe == user %}
+                        <a href="{% url 'job_fe_status' job_id=job.job_id %}" class="btn-primary-glow px-8 py-3 bg-blue-600 text-white font-black rounded-xl text-sm flex items-center gap-2">
+                            <i class="fas fa-tools"></i> UPDATE TECHNICAL STATUS
+                        </a>
+
+                    {# Contractor Logic #}
+                    {% elif is_contractor and job.splicing_contractor_company and job.splicing_contractor_company|lower == user.profile.contractor_company_name|lower %}
+                        <a href="{% url 'contractor_status_update' job_id=job.job_id %}" class="btn-primary-glow px-8 py-3 bg-orange-500 text-white font-black rounded-xl text-sm flex items-center gap-2">
+                            <i class="fas fa-hammer"></i> SUBMIT SPLICING REPORT
+                        </a>
+
+                    {# Manager Logic #}
+                    {% elif is_manager or is_creator %}
+                        {% if job.status == 'COMPLETED' %}
+                            <a href="{% url 'job_closeout' job_id=job.job_id %}" class="px-8 py-3 bg-red-600 text-white font-black rounded-xl text-sm flex items-center gap-2 hover:bg-red-700 transition shadow-lg">
+                                <i class="fas fa-archive"></i> FORMAL CLOSEOUT & ARCHIVE
+                            </a>
+                        {% elif job.status == 'MANAGER_ASSIGNED' %}
+                            <a href="{% url 'job_assign' job_id=job.job_id %}" class="px-8 py-3 bg-indigo-600 text-white font-black rounded-xl text-sm flex items-center gap-2 hover:bg-indigo-700 transition">
+                                <i class="fas fa-user-plus"></i> ASSIGN TO RESOURCE
+                            </a>
+                        {% endif %}
+                    {% endif %}
+
+                {% else %}
+                    <div class="flex items-center gap-3 text-gray-400 font-bold italic py-2">
+                        <i class="fas fa-lock text-xl"></i>
+                        RECORD FINALIZED AND ARCHIVED
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    {# --- 3. DATA GRID (Technical details) --- #}
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        {# Column A: Logistics & Location #}
+        <div class="lg:col-span-2 space-y-6">
+            <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                <div class="flex justify-between items-center mb-6 border-b border-gray-50 pb-4">
+                    <h3 class="text-sm font-black text-gray-800 uppercase tracking-tighter">Project Metadata</h3>
+                    {% if is_manager or is_creator %}
+                        <a href="{% url 'job_update_metadata' job_id=job.job_id %}" class="text-[10px] font-black text-indigo-600 hover:underline uppercase tracking-widest">Edit Records</a>
+                    {% endif %}
+                </div>
+
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+                    <div>
+                        <p class="text-[10px] font-black text-gray-400 uppercase mb-1">Code</p>
+                        <p class="text-sm font-bold text-gray-800">{{ job.project_code|default:"--" }}</p>
+                    </div>
+                    <div>
+                        <p class="text-[10px] font-black text-gray-400 uppercase mb-1">Required By</p>
+                        <p class="text-sm font-bold text-red-600">{{ job.required_completion_date|date:"M d, Y"|default:"--" }}</p>
+                    </div>
+                    <div>
+                        <p class="text-[10px] font-black text-gray-400 uppercase mb-1">Provisioned</p>
+                        <p class="text-sm font-bold text-gray-800">{{ job.start_date|date:"M d, Y" }}</p>
+                    </div>
+                    <div>
+                        <p class="text-[10px] font-black text-gray-400 uppercase mb-1">Infrastructure</p>
+                        <p class="text-xs font-bold text-gray-800 truncate">{{ job.pop_location_fk.name }} / {{ job.switch_fk.name }}</p>
+                    </div>
+                </div>
+
+                <div class="mt-8 pt-6 border-t border-gray-50">
+                    <p class="text-[10px] font-black text-gray-400 uppercase mb-2">Internal Briefing / Notes</p>
+                    <div class="p-4 bg-gray-50 rounded-xl border border-gray-100 italic text-sm text-gray-600 leading-relaxed">
+                        {{ job.comment|default:"No technical notes provided for this project." }}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {# Column B: Resource & Documentation #}
+        <div class="space-y-6">
+            <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                <h3 class="text-sm font-black text-gray-800 uppercase tracking-tighter mb-6 border-b border-gray-50 pb-4">Resource Allocation</h3>
+                <div class="space-y-4">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs text-gray-500">Field Engineer</span>
+                        <span class="text-xs font-bold text-indigo-700">{{ job.assigned_fe.username|default:"N/A" }}</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs text-gray-500">Contractor Partner</span>
+                        <span class="text-xs font-bold text-gray-800">{{ job.splicing_contractor_company|default:"N/A" }}</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs text-gray-500">Overseeing Manager</span>
+                        <span class="text-xs font-bold text-gray-800">{{ job.assigned_manager.username|default:"Unassigned" }}</span>
+                    </div>
+                </div>
+            </div>
+
+            {# Documentation Card #}
+            <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                <h3 class="text-sm font-black text-gray-800 uppercase tracking-tighter mb-4 flex items-center justify-between">
+                    Technical Assets
+                    <i class="fas fa-file-invoice text-gray-300"></i>
+                </h3>
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="p-3 bg-gray-50 rounded-lg text-center border border-gray-100">
+                        <p class="text-[9px] font-black text-gray-400 uppercase mb-1">Fiber Trace</p>
+                        {% if job.trace_attachment %}
+                            <a href="{{ job.trace_attachment.url }}" target="_blank" class="text-xs font-bold text-green-600 hover:underline">VIEW FILE</a>
+                        {% else %}
+                            <span class="text-xs font-bold text-red-300">MISSING</span>
+                        {% endif %}
+                    </div>
+                    <div class="p-3 bg-gray-50 rounded-lg text-center border border-gray-100">
+                        <p class="text-[9px] font-black text-gray-400 uppercase mb-1">Splicing Photo</p>
+                        {% if job.splicing_picture %}
+                            <a href="{{ job.splicing_picture.url }}" target="_blank" class="text-xs font-bold text-green-600 hover:underline">VIEW IMAGE</a>
+                        {% else %}
+                            <span class="text-xs font-bold text-red-300">MISSING</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            {% if job.provisioning_record %}
+            <div class="bg-teal-900 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden">
+                <i class="fas fa-microchip absolute -right-2 -bottom-2 text-5xl text-white/10"></i>
+                <h3 class="text-[10px] font-black text-teal-300 uppercase tracking-widest mb-4">Network Provisioning</h3>
+                <div class="space-y-2">
+                    <div class="flex justify-between text-xs">
+                        <span class="opacity-70">VLAN ID</span>
+                        <span class="font-mono font-bold">{{ job.provisioning_record.vlan_id|default:"--" }}</span>
+                    </div>
+                    <div class="flex justify-between text-xs">
+                        <span class="opacity-70">Static IP</span>
+                        <span class="font-mono font-bold">{{ job.provisioning_record.ip_address|default:"--" }}</span>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
+
+    .btn-primary-glow {
+        box-shadow: 0 0 15px rgba(79, 70, 229, 0.3);
+        transition: all 0.3s ease;
+    }
+    .btn-primary-glow:hover {
+        box-shadow: 0 0 25px rgba(79, 70, 229, 0.5);
+        transform: translateY(-1px);
+    }
+</style>
+{% endblock content %}

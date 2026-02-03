@@ -1,0 +1,112 @@
+{% load splicing_filters %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Splicing Tracker{% endblock %}</title>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            background-color: #f7f7f7;
+        }
+        main {
+            flex-grow: 1;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+
+    <header class="bg-white shadow-md">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex justify-between items-center">
+
+            {# Dashboard Redirect checks role and routes to the correct dashboard #}
+            <a href="{% url 'custom_dashboard_redirect' %}" class="text-2xl font-bold text-indigo-600 tracking-tight flex items-center">
+                <i class="fas fa-network-wired mr-2"></i>Splicing Tracker
+            </a>
+
+            <nav class="space-x-4 flex items-center">
+                {% if user.is_authenticated %}
+
+                    {# --- UPDATED REPORTS LINK LOGIC --- #}
+                    {# Check for per-user permission or Superuser for Advanced Report #}
+                    {% if user.is_superuser or perms.splicing.can_view_advanced_report %}
+                        <a href="{% url 'advanced_report' %}" class="px-4 py-2 bg-yellow-500 text-white rounded-md hover:bg-yellow-600 transition duration-150 font-medium flex items-center shadow-sm">
+                            <i class="fas fa-chart-line mr-2"></i> Advanced Report
+                        </a>
+                    {# Otherwise check for specific Manager/SD groups for standard Reports #}
+                    {% elif user|in_group:"Project_Managers" or user|in_group:"Service_Delivery" or user|in_group:"Technical_Managers" %}
+                        <a href="{% url 'tech_manager_report' %}" class="px-4 py-2 bg-indigo-500 text-white rounded-md hover:bg-indigo-600 transition duration-150 font-medium flex items-center">
+                            <i class="fas fa-chart-bar mr-2"></i> Reports
+                        </a>
+                    {% endif %}
+
+                    {# New Job Button #}
+                    {% if user.is_superuser or user|in_group:"Job_Creators" %}
+                        <a href="{% url 'job_create' %}" class="text-white bg-indigo-600 px-4 py-2 rounded-md hover:bg-indigo-700 font-medium flex items-center shadow-sm">
+                            <i class="fas fa-plus-circle mr-1"></i> New Job
+                        </a>
+                    {% endif %}
+
+                    <div class="flex items-center ml-4 pl-4 border-l border-gray-200">
+                        <span class="text-gray-600 font-medium mr-4">
+                            <i class="fas fa-user-circle mr-1 text-gray-400"></i> {{ user.username }}
+                        </span>
+
+                        <form method="post" action="{% url 'logout' %}" class="inline-block">
+                            {% csrf_token %}
+                            <button type="submit" class="p-2 text-gray-400 hover:text-red-500 transition duration-150" title="Logout">
+                                <i class="fas fa-power-off text-lg"></i>
+                            </button>
+                        </form>
+                    </div>
+
+                {% else %}
+                    <a href="{% url 'login' %}" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition duration-150 flex items-center">
+                        <i class="fas fa-sign-in-alt mr-1"></i> Login
+                    </a>
+                {% endif %}
+            </nav>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        {# --- MESSAGES BLOCK --- #}
+        {% if messages %}
+            <div class="mb-4">
+                {% for message in messages %}
+                <div class="p-3 mb-2 rounded-lg text-white font-semibold shadow-sm flex items-center
+                    {% if message.tags == 'error' %}bg-red-500
+                    {% elif message.tags == 'success' %}bg-green-500
+                    {% elif message.tags == 'warning' %}bg-yellow-600
+                    {% else %}bg-blue-500{% endif %}" role="alert">
+                    <i class="fas fa-info-circle mr-2"></i>
+                    {{ message }}
+                </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <div class="w-full">
+            {% block content %}
+            {% endblock content %}
+        </div>
+
+    </main>
+
+    <footer class="bg-white shadow-inner mt-auto">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 text-center text-gray-500 text-sm">
+            &copy; {% now "Y" %} Edward Bukolo - Splicing Tracker V1.0 &bull;
+            <span class="text-xs uppercase tracking-tighter">Authorized Use Only</span>
+        </div>
+    </footer>
+
+</body>
+</html>

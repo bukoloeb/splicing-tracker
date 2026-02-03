@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% load crispy_forms_tags %}
+{% load humanize %}
+{% load splicing_filters %}
+
+{% block title %}Provision Service | {{ job.customer_name|default:job.job_id }}{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto py-8 space-y-6 font-inter">
+
+    {# --- 1. TOP NAVIGATION --- #}
+    <div class="flex items-center justify-between px-2">
+        <a href="{% url 'sd_dashboard' %}" class="text-xs font-bold text-gray-400 hover:text-indigo-600 transition uppercase tracking-widest flex items-center">
+            <i class="fas fa-arrow-left mr-2"></i> Back to SD Dashboard
+        </a>
+        <div class="flex items-center gap-2">
+             <span class="text-[10px] font-black px-3 py-1 bg-gray-100 text-gray-500 rounded-full uppercase">Ref: {{ job.job_id }}</span>
+        </div>
+    </div>
+
+    {# --- 2. THE MAIN CARD (Beautiful White Theme) --- #}
+    <div class="bg-white shadow-sm border border-gray-200 rounded-xl overflow-hidden">
+
+        {# --- Header with Indigo-900 Accent --- #}
+        <div class="px-8 py-6 border-b border-gray-100 bg-white">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                    <h2 class="text-3xl font-extrabold text-gray-900 tracking-tight">
+                        Provisioning: <span class="text-indigo-600 italic">{{ job.customer_name|default:"Unnamed Customer" }}</span>
+                    </h2>
+                    <p class="text-xs font-bold text-gray-400 uppercase tracking-widest mt-1">Network Engineering Configuration</p>
+                </div>
+                <div class="px-4 py-2 bg-indigo-900 text-white rounded-lg shadow-md flex items-center gap-3 border border-indigo-800">
+                    <div class="w-2 h-2 bg-indigo-400 rounded-full animate-pulse"></div>
+                    <span class="text-[10px] font-black uppercase tracking-widest">Active Entry</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="p-8 space-y-8">
+            {# --- READ-ONLY CONTEXT (Matching your KPI style) --- #}
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="bg-gray-50 p-4 rounded-lg border-l-4 border-indigo-500">
+                    <label class="text-[10px] font-black text-gray-400 uppercase tracking-tighter">Target Location</label>
+                    <p class="text-sm font-bold text-gray-800 mt-1 leading-tight">
+                        {{ job.street_address|default:"N/A" }}, {{ job.city|default:"N/A" }}
+                    </p>
+                </div>
+                <div class="bg-gray-50 p-4 rounded-lg border-l-4 border-blue-500">
+                    <label class="text-[10px] font-black text-gray-400 uppercase tracking-tighter">Network Node</label>
+                    <p class="text-sm font-mono font-bold text-indigo-700 mt-1">
+                        {{ job.pop_location_fk.name|default:"Missing PoP" }} / {{ job.switch_fk.name|default:"Missing Switch" }}
+                    </p>
+                </div>
+                <div class="bg-gray-50 p-4 rounded-lg border-l-4 border-green-500">
+                    <label class="text-[10px] font-black text-gray-400 uppercase tracking-tighter">Current Lifecycle</label>
+                    <div class="mt-1">
+                        <span class="px-2 py-0.5 text-[10px] font-black rounded border {{ job.status|status_class_map }} uppercase tracking-widest">
+                            {{ job.get_status_display }}
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            {# --- CONFIGURATION FORM --- #}
+            <div class="pt-4 border-t border-gray-100">
+                <h3 class="text-sm font-black text-gray-400 uppercase tracking-[0.2em] mb-6">
+                    <i class="fas fa-server mr-2 text-indigo-500"></i> Provisioning Details
+                </h3>
+
+                <form method="post" class="space-y-6">
+                    {% csrf_token %}
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+                        {# Utilizing Crispy but with custom input styling #}
+                        <div class="custom-crispy">
+                            {{ form|crispy }}
+                        </div>
+                    </div>
+
+                    {% if provisioning_instance.configured_by %}
+                    <div class="mt-6 flex items-center gap-4 p-4 bg-amber-50 border border-amber-100 rounded-lg">
+                        <i class="fas fa-history text-amber-500 text-lg"></i>
+                        <div>
+                            <p class="text-[11px] font-bold text-amber-800 uppercase tracking-wider leading-none">Last Revision</p>
+                            <p class="text-xs text-amber-700 mt-1">
+                                Updated by <span class="font-black underline">{{ provisioning_instance.configured_by.username }}</span>
+                                on <span class="font-black">{{ provisioning_instance.configured_on|date:"d M Y, H:i" }}</span>
+                            </p>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <div class="flex flex-col md:flex-row justify-end gap-4 pt-8 border-t border-gray-50">
+                        <button type="submit"
+                                class="inline-flex items-center justify-center px-10 py-4 border border-transparent text-sm font-black rounded-xl text-white bg-indigo-600 hover:bg-indigo-700 shadow-xl shadow-indigo-100 transition-all active:scale-95 uppercase tracking-widest">
+                            <i class="fas fa-network-wired mr-2"></i>
+                            {% if provisioning_instance %}
+                                Commit Revision
+                            {% else %}
+                                Complete Provisioning
+                            {% endif %}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap');
+
+    .font-inter { font-family: 'Inter', sans-serif; }
+
+    /* Customizing Crispy Output to match your dashboard's "Beautiful" type */
+    .custom-crispy label {
+        @apply text-[11px] font-black text-gray-500 uppercase tracking-wider mb-2 !important;
+    }
+
+    .custom-crispy input, .custom-crispy select, .custom-crispy textarea {
+        @apply w-full px-4 py-3 bg-gray-50 border-gray-200 rounded-lg text-sm font-bold text-gray-800 focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all outline-none !important;
+    }
+
+    .custom-crispy textarea {
+        min-height: 120px;
+    }
+
+    .custom-crispy .invalid-feedback {
+        @apply text-xs font-bold text-red-500 mt-1 uppercase tracking-tighter !important;
+    }
+</style>
+{% endblock %}

@@ -1,0 +1,125 @@
+{% extends 'base.html' %}
+{% load humanize %}
+{% load splicing_filters %}
+
+{% block title %}History & Metrics | Splicing Tracker{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+    {# --- Header Section --- #}
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+            <h2 class="text-3xl font-extrabold text-gray-900 tracking-tight">
+                <i class="fas fa-history text-indigo-600 mr-2"></i>History & Metrics
+            </h2>
+            <p class="text-sm text-gray-500 mt-1">Archived records and performance analytics for completed projects.</p>
+        </div>
+        <a href="{% url 'job_dashboard' %}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-bold shadow-sm text-sm">
+            <i class="fas fa-arrow-left mr-2 text-gray-400"></i> Back to Dashboard
+        </a>
+    </div>
+
+    {# --- 1. Top Level Metrics --- #}
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm border-t-4 border-t-indigo-500">
+            <p class="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Total Throughput</p>
+            <div class="flex items-baseline gap-2 mt-1">
+                <p class="text-3xl font-black text-gray-800">{{ completed_jobs|length }}</p>
+                <p class="text-xs font-bold text-gray-400">Jobs Finalized</p>
+            </div>
+        </div>
+
+        <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm border-t-4 border-t-purple-500">
+            <p class="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Efficiency Rating</p>
+            <div class="flex items-baseline gap-2 mt-1">
+                <p class="text-3xl font-black text-purple-700">{{ average_completion_time }}</p>
+                <p class="text-xs font-bold text-gray-400">Avg. Turnaround</p>
+            </div>
+        </div>
+
+        <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm border-t-4 border-t-green-500 flex flex-col justify-center">
+            <div class="flex items-center text-green-600">
+                <i class="fas fa-chart-line text-2xl mr-3"></i>
+                <div>
+                    <p class="text-xs font-black uppercase tracking-widest">System Health</p>
+                    <p class="text-sm font-bold text-gray-600">Archive Sync: 100%</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# --- 2. FE Performance Grid --- #}
+    <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+        <h3 class="text-sm font-bold text-gray-400 uppercase mb-4 tracking-widest flex items-center">
+            <i class="fas fa-medal mr-2 text-yellow-500"></i> FE Performance (Life-to-Date)
+        </h3>
+        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            {% for fe in fe_workload %}
+            <div class="p-3 bg-gray-50 border border-gray-100 rounded-lg text-center hover:bg-indigo-50 transition">
+                <p class="text-xs font-bold text-gray-700 truncate mb-1">{{ fe.assigned_fe__username|default:"Unassigned"|cut:"*" }}</p>
+                <p class="text-xl font-black text-indigo-600">{{ fe.completed_count }}</p>
+                <p class="text-[9px] font-bold text-gray-400 uppercase">Jobs Done</p>
+            </div>
+            {% empty %}
+            <p class="text-gray-400 text-sm italic col-span-full">No historical performance data available.</p>
+            {% endfor %}
+        </div>
+    </div>
+
+    {# --- 3. Archive Data Table --- #}
+    <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <div class="p-5 border-b border-gray-100 bg-gray-50/50">
+            <h3 class="font-bold text-gray-800">Completed Project Logs</h3>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-gray-50 text-[10px] uppercase tracking-widest text-gray-400 border-b border-gray-100">
+                        <th class="px-6 py-4 font-bold">Ref / Customer</th>
+                        <th class="px-6 py-4 font-bold hidden sm:table-cell">Location</th>
+                        <th class="px-6 py-4 font-bold">Field Engineer</th>
+                        <th class="px-6 py-4 font-bold">Closed On</th>
+                        <th class="px-6 py-4 font-bold hidden md:table-cell">Duration</th>
+                        <th class="px-6 py-4 font-bold text-right">Link</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-50 text-sm">
+                    {% for job in completed_jobs %}
+                    <tr class="hover:bg-gray-50/50 transition">
+                        <td class="px-6 py-4">
+                            <span class="block font-bold text-gray-900">{{ job.job_id }}</span>
+                            <span class="text-[10px] text-gray-400 uppercase">{{ job.customer_name|truncatechars:20 }}</span>
+                        </td>
+                        <td class="px-6 py-4 hidden sm:table-cell">
+                            <div class="text-xs text-gray-700 font-medium">{{ job.city }}</div>
+                            <div class="text-[10px] text-gray-400">ID: {{ job.project_code }}</div>
+                        </td>
+                        <td class="px-6 py-4">
+                            <span class="px-2 py-1 bg-gray-100 text-gray-600 text-[10px] font-bold rounded">
+                                {{ job.assigned_fe.username|default:"N/A"|cut:"*"|truncatechars:10 }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4">
+                            <span class="text-xs font-bold text-green-600">{{ job.end_date|date:"M d, Y" }}</span>
+                        </td>
+                        <td class="px-6 py-4 hidden md:table-cell">
+                            <span class="text-xs font-mono text-gray-500">{{ job.duration_field|format_duration }}</span>
+                        </td>
+                        <td class="px-6 py-4 text-right">
+                            <a href="{% url 'job_detail' job.job_id %}" class="p-2 text-gray-400 hover:text-indigo-600 transition">
+                                <i class="fas fa-external-link-alt text-xs"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="px-6 py-12 text-center text-gray-400 italic">No archive records found.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock content %}
