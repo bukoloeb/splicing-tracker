@@ -6,15 +6,16 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
-# On Railway, set a variable named SECRET_KEY in the dashboard.
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-&$4sxo3ws(x)p^^slwy_o&nns7unys^yh8#us7^w2742yegay*')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DEBUG', 'False').lower() == 'true'
 
 # Allow Railway domain and localhost
-ALLOWED_HOSTS = ['*'] 
+ALLOWED_HOSTS = ['*']
 
+# Required for Django 4.0+ to handle CSRF on the Railway domain
+CSRF_TRUSTED_ORIGINS = ['https://*.railway.app']
 
 # Application definition
 INSTALLED_APPS = [
@@ -23,6 +24,7 @@ INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
+    'whitenoise.runserver_nostatic', # Must be before staticfiles
     'django.contrib.staticfiles',
     'django.contrib.humanize',
     # --- Local Apps ---
@@ -30,7 +32,6 @@ INSTALLED_APPS = [
     # --- Third-Party Apps ---
     'crispy_forms',
     'crispy_tailwind',
-    'whitenoise.runserver_nostatic', # For serving static files in production
 ]
 
 MIDDLEWARE = [
@@ -63,8 +64,8 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'splicing_tracker.wsgi.application'
 
-
 # Database configuration
+# This automatically uses Postgres on Railway and SQLite locally
 DATABASES = {
     'default': dj_database_url.config(
         default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
@@ -72,7 +73,6 @@ DATABASES = {
         ssl_require=not DEBUG
     )
 }
-
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
@@ -82,17 +82,17 @@ AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
 
-
 # Internationalization
 LANGUAGE_CODE = 'en-us'
 TIME_ZONE = 'Africa/Lusaka'
 USE_I18N = True
 USE_TZ = True
 
-
 # Static files (CSS, JavaScript, Images)
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+# WhiteNoise storage to handle cache-busting
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # Media files
@@ -106,3 +106,6 @@ LOGOUT_REDIRECT_URL = '/'
 # Crispy Forms
 CRISPY_ALLOWED_TEMPLATE_PACKS = "tailwind"
 CRISPY_TEMPLATE_PACK = "tailwind"
+
+# Default primary key field type
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
