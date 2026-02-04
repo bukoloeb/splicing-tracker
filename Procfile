@@ -1,0 +1,1 @@
+web: python manage.py migrate && gunicorn splicing_tracker.wsgi
