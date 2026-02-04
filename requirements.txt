@@ -8,3 +8,5 @@ psycopg2-binary==2.9.10
 dj-database-url==2.3.0
 whitenoise==6.8.2
 sqlparse==0.5.3
+pytz==2024.2
+python-dotenv==1.0.1> requirements.txt
