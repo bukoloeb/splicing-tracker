@@ -1,28 +1,7 @@
-# --- Django Core ---
-Django~=6.0
-pytz==2023.3.post1
-
-# --- Frontend & Forms ---
-django-crispy-forms~=2.1
-crispy-tailwind~=1.0.3
-
-# --- File Handling, Images & Media ---
-Pillow
-
-# --- Data Export (Excel & PDF) ---
-openpyxl~=3.1
-reportlab~=4.1
-# WeasyPrint requires several system-level dependencies; Railway handles these well.
-WeasyPrint
-
-# --- Database Adaptor ---
-# Psycopg2 is required for PostgreSQL (Railway's default database)
-psycopg2-binary~=2.9
-# dj-database-url allows Django to "speak" to Railway's database environment variables
-dj-database-url~=2.1.0
-
-# --- Production & Deployment ---
-# Gunicorn is the server that will run your app
-gunicorn~=22.0
-# WhiteNoise is essential for serving CSS and JS on Railway
-whitenoise~=6.6.0
+asgiref==3.11.1
+dj-database-url==3.1.0
+Django==6.0.2
+gunicorn==25.0.1
+packaging==26.0
+sqlparse==0.5.5
+whitenoise==6.11.0
