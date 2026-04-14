@@ -1,21 +1,32 @@
 import os
 import dj_database_url
 from pathlib import Path
+from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# Load .env file for local development
+load_dotenv(os.path.join(BASE_DIR, '.env'))
+
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-&$4sxo3ws(x)p^^slwy_o&nns7unys^yh8#us7^w2742yegay*')
+SECRET_KEY = os.environ.get('SECRET_KEY', 'm@qelz85e#p#$o2o#9+-1dco#x0-9fco&^e3jlvyeea04@@+rh*')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DEBUG', 'False').lower() == 'true'
 
-# Allow Railway domain and localhost
-ALLOWED_HOSTS = ["localhost", "127.0.0.1", ".onrender.com"]
+# Cleaned up ALLOWED_HOSTS
+ALLOWED_HOSTS = [
+    'splicing-tracker.onrender.com',
+    'localhost',
+    '127.0.0.1',
+    '.onrender.com'
+]
 
-# Required for Django 4.0+ to handle CSRF on the Railway domain
-CSRF_TRUSTED_ORIGINS = ['https://*.railway.app']
+# Trusted origins for CSRF (Render specific)
+CSRF_TRUSTED_ORIGINS = [
+    'https://splicing-tracker.onrender.com'
+]
 
 # Application definition
 INSTALLED_APPS = [
@@ -36,7 +47,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware', # Essential for static files
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -64,9 +75,11 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'splicing_tracker.wsgi.application'
 
+# Database Configuration for PostgreSQL on Render
 DATABASES = {
     'default': dj_database_url.config(
-        default="sqlite:///db.sqlite3"
+        default='sqlite:///db.sqlite3', # Fallback for local dev
+        conn_max_age=600
     )
 }
 
@@ -86,9 +99,9 @@ USE_TZ = True
 
 # Static files (CSS, JavaScript, Images)
 STATIC_URL = 'static/'
-
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
-# WhiteNoise storage to handle cache-busting
+
+# Optimized WhiteNoise for production
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # Media files
@@ -99,7 +112,7 @@ MEDIA_ROOT = BASE_DIR / 'media'
 LOGIN_REDIRECT_URL = 'dashboard_redirect'
 LOGOUT_REDIRECT_URL = '/'
 
-# Crispy Forms
+# Crispy Forms Configuration
 CRISPY_ALLOWED_TEMPLATE_PACKS = "tailwind"
 CRISPY_TEMPLATE_PACK = "tailwind"
 
