@@ -9,6 +9,11 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Load .env file for local development
 load_dotenv(os.path.join(BASE_DIR, '.env'))
 
+# --- MIME Type Fix (Ensures CSS is served correctly on Render/Linux) ---
+import mimetypes
+mimetypes.add_type("text/css", ".css", True)
+mimetypes.add_type("text/javascript", ".js", True)
+
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.environ.get('SECRET_KEY', 'm@qelz85e#p#$o2o#9+-1dco#x0-9fco&^e3jlvyeea04@@+rh*')
 
@@ -100,11 +105,21 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 STATIC_URL = 'static/'
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
+
+# Create the local static folder if it doesn't exist to avoid collectstatic warnings
 STATICFILES_DIRS = [
-    BASE_DIR / 'static',
+    os.path.join(BASE_DIR, 'static'),
 ]
-# Optimized WhiteNoise for production
-STATICFILES_STORAGESTATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
+
+# Simplified WhiteNoise for reliability on production
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
+    },
+}
 
 # Media files
 MEDIA_URL = '/media/'
