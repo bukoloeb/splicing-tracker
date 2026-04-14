@@ -1,5 +1,6 @@
 import os
 import dj_database_url
+import mimetypes
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -9,8 +10,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Load .env file for local development
 load_dotenv(os.path.join(BASE_DIR, '.env'))
 
-# --- MIME Type Fix (Ensures CSS is served correctly on Render/Linux) ---
-import mimetypes
+# --- MIME Type Fix (CRITICAL for Render/Linux CSS delivery) ---
+# This prevents the browser from seeing CSS as 'text/html'
 mimetypes.add_type("text/css", ".css", True)
 mimetypes.add_type("text/javascript", ".js", True)
 
@@ -49,9 +50,10 @@ INSTALLED_APPS = [
     'crispy_forms',
     'crispy_tailwind',
 ]
+
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',  # Ensure this is exactly here
+    'whitenoise.middleware.WhiteNoiseMiddleware',  # Essential for serving static files
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -101,16 +103,17 @@ TIME_ZONE = 'Africa/Lusaka'
 USE_I18N = True
 USE_TZ = True
 
-# Static files (CSS, JavaScript, Images)
-STATIC_URL = '/static/'  # Add the leading slash
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+# --- Static files (CSS, JavaScript, Images) ---
+STATIC_URL = '/static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
-# Create the local static folder if it doesn't exist to avoid collectstatic warnings
-STATICFILES_DIRS = [
-    os.path.join(BASE_DIR, 'static'),
-]
+# Stop the W004 warning by only adding the directory if it exists
+STATICFILES_DIRS = []
+LOCAL_STATIC_PATH = BASE_DIR / 'static'
+if LOCAL_STATIC_PATH.exists():
+    STATICFILES_DIRS.append(str(LOCAL_STATIC_PATH))
 
-# Simplified WhiteNoise for reliability on production
+# Storage configuration for Django 4.2+ and Django 6.0
 STORAGES = {
     "default": {
         "BACKEND": "django.core.files.storage.FileSystemStorage",
