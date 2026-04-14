@@ -12,7 +12,7 @@ SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-&$4sxo3ws(x)p^^slwy_o
 DEBUG = os.environ.get('DEBUG', 'False').lower() == 'true'
 
 # Allow Railway domain and localhost
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = ["localhost", "127.0.0.1", ".onrender.com"]
 
 # Required for Django 4.0+ to handle CSRF on the Railway domain
 CSRF_TRUSTED_ORIGINS = ['https://*.railway.app']
@@ -36,7 +36,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware', # Place right under SecurityMiddleware
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -64,13 +64,9 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'splicing_tracker.wsgi.application'
 
-# Database configuration
-# This automatically uses Postgres on Railway and SQLite locally
 DATABASES = {
     'default': dj_database_url.config(
-        default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
-        conn_max_age=600,
-        ssl_require=not DEBUG
+        default="sqlite:///db.sqlite3"
     )
 }
 
@@ -90,8 +86,8 @@ USE_TZ = True
 
 # Static files (CSS, JavaScript, Images)
 STATIC_URL = 'static/'
-STATIC_ROOT = BASE_DIR / 'staticfiles'
 
+STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 # WhiteNoise storage to handle cache-busting
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
