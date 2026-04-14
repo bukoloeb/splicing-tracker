@@ -49,10 +49,9 @@ INSTALLED_APPS = [
     'crispy_forms',
     'crispy_tailwind',
 ]
-
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware', # Essential for static files
+    'whitenoise.middleware.WhiteNoiseMiddleware',  # Ensure this is exactly here
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -103,8 +102,8 @@ USE_I18N = True
 USE_TZ = True
 
 # Static files (CSS, JavaScript, Images)
-STATIC_URL = 'static/'
-STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
+STATIC_URL = '/static/'  # Add the leading slash
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 # Create the local static folder if it doesn't exist to avoid collectstatic warnings
 STATICFILES_DIRS = [
