@@ -37,6 +37,8 @@ from .forms import (
     ProvisioningRecordForm,
     JobCloseoutForm,
 )
+from django.db import transaction
+
 # ====================================================================
 # 1. HELPER FUNCTIONS
 # ====================================================================
@@ -264,27 +266,40 @@ class DashboardView(LoginRequiredMixin, ListView):
 
     def get_queryset(self):
         user = self.request.user
+        # Start with a base queryset
         queryset = SplicingJob.objects.all().select_related('assigned_fe')
+
+        # --- 1. STRICT ROLE-BASED ISOLATION ---
+        # Managers and Technical Managers see everything.
+        # Everyone else gets a filtered view.
+        if not (is_manager(user) or is_technical_manager(user)):
+            if is_contractor(user):
+                try:
+                    company = user.profile.contractor_company_name
+                    if company:
+                        queryset = queryset.filter(splicing_contractor_company__iexact=company)
+                    else:
+                        queryset = queryset.none()
+                except (UserProfile.DoesNotExist, AttributeError):
+                    queryset = queryset.none()
+
+            elif is_field_engineer(user):
+                queryset = queryset.filter(assigned_fe=user)
+
+            elif is_job_creator(user):
+                queryset = queryset.filter(creator=user)
+
+        # --- 2. ADVANCED FILTERING (Search/Status) ---
         filter_form = JobFilterForm(self.request.GET)
-
-        # 1. Base Queryset Filtering (By Role)
-        if is_field_engineer(user) and not (is_manager(user) or is_technical_manager(user)):
-            queryset = queryset.filter(assigned_fe=user)
-        elif is_contractor(user) and not is_service_delivery(user):
-            try:
-                company = user.profile.contractor_company_name
-                queryset = queryset.filter(splicing_contractor_company__iexact=company) if company else queryset.none()
-            except:
-                queryset = queryset.none()
-        elif is_job_creator(user) and not (is_manager(user) or is_technical_manager(user)):
-            queryset = queryset.filter(creator=user)
-
-        # 2. Advanced Filtering
         if filter_form.is_valid():
             data = filter_form.cleaned_data
             if data.get('search_query'):
                 q = data.get('search_query')
-                queryset = queryset.filter(Q(job_id__icontains=q) | Q(customer_name__icontains=q))
+                queryset = queryset.filter(
+                    Q(job_id__icontains=q) |
+                    Q(customer_name__icontains=q) |
+                    Q(project_code__icontains=q)
+                )
             if data.get('status'):
                 queryset = queryset.filter(status=data.get('status'))
             if data.get('assigned_fe'):
@@ -299,13 +314,15 @@ class DashboardView(LoginRequiredMixin, ListView):
         user = self.request.user
         now = timezone.now()
 
-        # Base stats for the top cards
-        stats_qs = SplicingJob.objects.all()
+        # --- 3. KPI ISOLATION ---
+        # We must use the filtered queryset for stats so contractors don't see
+        # global counts in their dashboard cards.
+        stats_qs = self.get_queryset()
 
-        # KPIs: STATUS BASED
+        # KPIs: STATUS BASED (Filtered to what the user is allowed to see)
         context['pending_assignment'] = stats_qs.filter(status='PENDING_ASSIGNMENT').count()
         context['active_splicing'] = stats_qs.filter(status__in=['FE_ASSIGNED', 'IN_PROGRESS']).count()
-        context['pending_provisioning'] = stats_qs.filter(status__in=['SD_PENDING', 'CLOSED_ARCHIVED']).count()
+        context['pending_provisioning'] = stats_qs.filter(status='SD_PENDING').count()
 
         # KPIs: TIME BASED
         context['metrics'] = {
@@ -314,20 +331,18 @@ class DashboardView(LoginRequiredMixin, ListView):
             'ytd': stats_qs.filter(end_date__year=now.year).count(),
         }
 
-        # --- WORKLOAD AGGREGATION ---
+        # --- 4. PRIVILEGED DATA (Managers only) ---
         if is_manager(user) or is_technical_manager(user):
-            # 1. Internal FE Workload (Users)
+            # Internal FE Workload
             context['fe_active_workload'] = User.objects.annotate(
                 job_count=Count('fe_jobs', filter=Q(fe_jobs__status__in=['FE_ASSIGNED', 'IN_PROGRESS', 'SD_PENDING']))
             ).filter(job_count__gt=0).order_by('-job_count')
 
-            # 2. Contractor Workload (Company Strings)
-            context['contractor_workload'] = stats_qs.filter(
+            # Contractor Workload
+            context['contractor_workload'] = SplicingJob.objects.filter(
                 status__in=['FE_ASSIGNED', 'IN_PROGRESS', 'SD_PENDING']
             ).exclude(
-                splicing_contractor_company__isnull=True
-            ).exclude(
-                splicing_contractor_company=''
+                Q(splicing_contractor_company__isnull=True) | Q(splicing_contractor_company='')
             ).values('splicing_contractor_company').annotate(
                 job_count=Count('id')
             ).order_by('-job_count')
@@ -335,20 +350,30 @@ class DashboardView(LoginRequiredMixin, ListView):
         context['filter_form'] = JobFilterForm(self.request.GET)
         return context
 
+
+
+
 class JobCreateView(LoginRequiredMixin, JobCreatorRequiredMixin, CreateView):
     model = SplicingJob
     form_class = SplicingJobCreationForm
     template_name = 'splicing/job_create.html'
 
     def form_valid(self, form):
-        form.instance.creator = self.request.user
-        form.instance.status = SplicingJob.MANAGER_ASSIGNED
-        form.instance.job_id = generate_job_id()
-        return super().form_valid(form)
+        # Wrap in atomic transaction for reliability
+        with transaction.atomic():
+            form.instance.creator = self.request.user
+            form.instance.status = SplicingJob.MANAGER_ASSIGNED
+            form.instance.job_id = generate_job_id()
+
+            # Save the object
+            response = super().form_valid(form)
+
+            # Add a success message for the user
+            messages.success(self.request, f"Job {form.instance.job_id} created successfully.")
+            return response
 
     def get_success_url(self):
         return reverse('job_detail', kwargs={'job_id': self.object.job_id})
-
 class JobViewerView(LoginRequiredMixin, UserPassesTestMixin, ListView):
     """Read-only dashboard for users who only need to check job status."""
     model = SplicingJob
