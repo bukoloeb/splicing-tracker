@@ -46,7 +46,7 @@
                 </h3>
 
                 <div class="space-y-4">
-                    {# --- Added Project Details --- #}
+                    {# --- Project Details --- #}
                     <div class="grid grid-cols-2 gap-4 pb-4 border-b border-gray-50">
                         <div class="info-block">
                             <label class="block text-[10px] font-black text-gray-400 uppercase tracking-tighter">Project ID</label>
@@ -63,16 +63,20 @@
                         <p class="text-sm font-bold text-gray-800 leading-tight mt-1">{{ job.neighbourhood|default:job.street_address }}, {{ job.city }}</p>
                     </div>
 
-                    <div class="info-block">
-                        <label class="block text-[10px] font-black text-gray-400 uppercase tracking-tighter">Network Node (PoP / Switch)</label>
-                        <p class="text-sm font-mono font-bold text-indigo-700 bg-indigo-50 px-2 py-1 rounded inline-block mt-1">
-                            {{ job.pop_location_fk.name|default:"N/A" }} / {{ job.switch_fk.name|default:"N/A" }}
-                        </p>
-                    </div>
-
-                    <div class="info-block">
-                        <label class="block text-[10px] font-black text-gray-400 uppercase tracking-tighter">Assigned Port</label>
-                        <p class="text-sm font-bold text-gray-800 mt-1">{{ job.port_number|default:"N/A" }}</p>
+                    {# --- Node & Port Block --- #}
+                    <div class="p-3 bg-gray-50 rounded-lg border border-gray-100 space-y-3">
+                        <div class="info-block">
+                            <label class="block text-[9px] font-black text-gray-400 uppercase tracking-tighter">Network Node</label>
+                            <p class="text-xs font-mono font-bold text-indigo-700 mt-0.5">
+                                {{ job.pop_location_fk.name|default:"N/A" }} / {{ job.switch_fk.name|default:"N/A" }}
+                            </p>
+                        </div>
+                        <div class="info-block pt-2 border-t border-gray-200/60">
+                            <label class="block text-[9px] font-black text-gray-400 uppercase tracking-tighter">Assigned Port</label>
+                            <p class="text-sm font-black text-gray-900 mt-0.5">
+                                <i class="fas fa-plug mr-1 text-gray-400"></i> {{ job.port_number|default:"Not Stated" }}
+                            </p>
+                        </div>
                     </div>
                 </div>
             </div>
