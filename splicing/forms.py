@@ -137,37 +137,74 @@ class JobAssignmentForm(forms.ModelForm):
 # --- 3. FE STATUS UPDATE FORM ---
 # =======================================================================
 class FEStatusUpdateForm(forms.ModelForm):
-    pop_location_fk = forms.ModelChoiceField(queryset=PopLocation.objects.all(), required=False)
-    switch_fk = forms.ModelChoiceField(queryset=Switch.objects.none(), required=False)
-    trace_attachment = forms.FileField(required=False)
-    splicing_picture = forms.FileField(required=False)
+    pop_location_fk = forms.ModelChoiceField(
+        queryset=PopLocation.objects.all(),
+        required=False,
+        label="Target PoP Location"
+    )
+    switch_fk = forms.ModelChoiceField(
+        queryset=Switch.objects.none(),
+        required=False,
+        label="Target Switch"
+    )
+
+    # We define these explicitly to ensure we can control the widget behavior
+    trace_attachment = forms.FileField(
+        required=False,
+        label="OTDR Trace / Test Report"
+    )
+    splicing_picture = forms.FileField(
+        required=False,
+        label="Splicing/Installation Picture"
+    )
 
     class Meta:
         model = SplicingJob
-        fields = ['pop_location_fk', 'switch_fk', 'port_number', 'status', 'comment', 'trace_attachment',
-                  'splicing_picture']
+        fields = [
+            'pop_location_fk',
+            'switch_fk',
+            'port_number',
+            'status',
+            'comment',
+            'trace_attachment',
+            'splicing_picture'
+        ]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+        # 1. Custom status choices for Field Engineers
         self.fields['status'].choices = [
             (SplicingJob.JOB_IN_PROGRESS, 'Splicing In Progress'),
             (SplicingJob.SERVICE_DELIVERY_PENDING, 'Splicing Completed'),
         ]
 
+        # 2. Chained Dropdown Logic for PoP -> Switch
         pop_id = None
         if 'pop_location_fk' in self.data:
             try:
                 pop_id = int(self.data.get('pop_location_fk'))
-            except:
+            except (ValueError, TypeError):
                 pass
         elif self.instance.pk and self.instance.pop_location_fk:
             pop_id = self.instance.pop_location_fk.pk
 
         if pop_id:
-            self.fields['switch_fk'].queryset = Switch.objects.filter(pop_location_id=pop_id).order_by('name')
+            self.fields['switch_fk'].queryset = Switch.objects.filter(
+                pop_location_id=pop_id
+            ).order_by('name')
 
+        # 3. Apply Styling and Universal File Acceptance
         for name, field in self.fields.items():
+            # Standard Tailwind width
             field.widget.attrs.update({'class': 'w-full'})
+
+            # Remove browser-side file restrictions to allow any fiber test file type
+            if isinstance(field, forms.FileField):
+                field.widget.attrs.update({
+                    'accept': '*',  # Allows PDFs, .sor files, images, etc.
+                    'class': 'w-full text-xs text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100'
+                })
 
 
 # =======================================================================
