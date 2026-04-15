@@ -181,8 +181,7 @@ def can_view_advanced_report(user):
 # 1B. CUSTOM LOGIN REDIRECT (FINALIZED)
 # ====================================================================
 
-@login_required
-@login_required
+
 @login_required
 def custom_dashboard_redirect(request):
     """
@@ -191,13 +190,22 @@ def custom_dashboard_redirect(request):
     """
     user = request.user
 
+    # --- SECURITY OVERRIDE: Force Password Change on First Login ---
+    try:
+        # We check the must_change_password flag on the user profile
+        if hasattr(user, 'profile') and user.profile.must_change_password:
+            messages.warning(request, "Security Policy: You must change your password before accessing the dashboard.")
+            return redirect('password_change')
+    except Exception as e:
+        # Fallback if profile logic fails, allow them through but log the error
+        print(f"Profile check error: {e}")
+
     # 1. Functional Roles (Primary Dashboards)
     if is_manager(user):
         messages.info(request, "Redirecting to Splicing Manager Dashboard.")
         return redirect('job_dashboard')
 
     if is_service_delivery(user):
-        # Based on your requirements, SD team focuses on 'Job Closed and Archived'
         messages.info(request, "Redirecting to Service Delivery Dashboard.")
         return redirect('sd_dashboard')
 
@@ -209,13 +217,13 @@ def custom_dashboard_redirect(request):
         return redirect('job_dashboard')
 
     if is_contractor(user):
+        # We handle the Contractor isolation logic inside the ContractorDashboardView queryset
         return redirect('contractor_dashboard')
 
     if is_job_viewer(user):
         return redirect('job_viewer_dashboard')
 
     # 2. Secondary/Permission-Based Roles
-    # Only redirect here if they have NO other functional role assigned
     if is_advanced_reporter(user):
         messages.info(request, "Redirecting to Advanced Report View.")
         return redirect('advanced_report')
@@ -394,12 +402,49 @@ class JobViewerView(LoginRequiredMixin, UserPassesTestMixin, ListView):
         context['filter_form'] = JobFilterForm(self.request.GET)
         return context
 
-class JobDetailView(LoginRequiredMixin, DetailView):
+class JobDetailView(LoginRequiredMixin, UserPassesTestMixin, DetailView):
     model = SplicingJob
     context_object_name = 'job'
     template_name = 'splicing/job_detail.html'
     slug_field = 'job_id'
     slug_url_kwarg = 'job_id'
+
+    def test_func(self):
+        """
+        STRICT ACCESS CONTROL: Prevents data leakage between contractors
+        and ensures field engineers only see their assigned work.
+        """
+        user = self.request.user
+        job = self.get_object()
+
+        # 1. Internal Management & SD have full visibility
+        if user.is_superuser or is_manager(user) or is_service_delivery(user) or is_technical_manager(user):
+            return True
+
+        # 2. Contractor Isolation Logic
+        if is_contractor(user):
+            try:
+                user_company = user.profile.contractor_company_name
+                if not user_company:
+                    return False
+                # Compare job company to user profile company
+                return job.splicing_contractor_company.lower() == user_company.lower()
+            except AttributeError:
+                return False
+
+        # 3. Field Engineer Isolation Logic
+        if is_field_engineer(user):
+            return job.assigned_fe == user
+
+        # 4. Job Creator visibility
+        if is_job_creator(user):
+            return job.creator == user
+
+        # 5. General Viewers
+        if is_job_viewer(user):
+            return True
+
+        return False
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -409,30 +454,26 @@ class JobDetailView(LoginRequiredMixin, DetailView):
         user_groups = set(user.groups.values_list('name', flat=True))
         is_superuser = user.is_superuser
 
-        # Helper lambda to check membership against the fetched set of groups
+        # Helper lambda to check membership
         def check_role(role_name):
             return is_superuser or (role_name in user_groups)
 
-        # Assign Role Context
+        # Assign Role Context for Template UI Logic
         context['is_manager'] = check_role('Splicing_Managers')
         context['is_fe'] = check_role('Field_Engineers')
         context['is_creator'] = check_role('Job_Creators')
         context['is_contractor'] = check_role('Contractors')
-
         context['is_service_delivery'] = check_role('Service_Delivery')
-
         context['is_job_viewer'] = check_role('Viewer')
         context['is_technical_manager'] = check_role('Technical_Managers')
         context['is_advanced_reporter'] = check_role('Advanced_Reporters')
 
         # Provisioning Record Context
         try:
-            # Note: self.object is the SplicingJob instance
             context['provisioning_record'] = self.object.provisioning_record
         except ProvisioningRecord.DoesNotExist:
             context['provisioning_record'] = None
 
-        context['job'] = self.object
         return context
 
 class JobAssignmentView(LoginRequiredMixin, ManagerRequiredMixin, UpdateView):
@@ -1315,3 +1356,27 @@ def export_advanced_report_pdf(request):
         'Content-Disposition'] = f'inline; filename="advanced_report_{timezone.now().strftime("%Y%m%d_%H%M%S")}.pdf"'
 
     return response
+
+
+# splicing/views.py
+
+class MyPasswordChangeView(auth_views.PasswordChangeView):
+    """
+    Custom Password Change View that clears the 'must_change_password' flag
+    on the user's profile upon successful completion.
+    """
+    success_url = reverse_lazy('password_change_done')
+    template_name = 'registration/password_change_form.html'
+
+    def form_valid(self, form):
+        # 1. Complete the standard password change logic
+        response = super().form_valid(form)
+
+        # 2. Update the UserProfile flag
+        user = self.request.user
+        if hasattr(user, 'profile'):
+            user.profile.must_change_password = False
+            user.profile.save()
+            messages.success(self.request, "Password updated successfully. Security policy cleared.")
+
+        return response

@@ -8,6 +8,7 @@ from django.db.models import F, ExpressionWrapper, DurationField
 # --- 0. EXTENDED USER PROFILE MODEL ---
 class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
+    must_change_password = models.BooleanField(default=True)
     contractor_company_name = models.CharField(
         max_length=100,
         blank=True,
