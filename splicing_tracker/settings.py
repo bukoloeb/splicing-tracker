@@ -11,7 +11,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(os.path.join(BASE_DIR, '.env'))
 
 # --- MIME Type Fix (CRITICAL for Render/Linux CSS delivery) ---
-# This prevents the browser from seeing CSS as 'text/html'
+# This forces the browser to recognize CSS correctly instead of 'text/html'
 mimetypes.add_type("text/css", ".css", True)
 mimetypes.add_type("text/javascript", ".js", True)
 
@@ -53,7 +53,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',  # Essential for serving static files
+    'whitenoise.middleware.WhiteNoiseMiddleware', # Essential for production static files
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -105,15 +105,17 @@ USE_TZ = True
 
 # --- Static files (CSS, JavaScript, Images) ---
 STATIC_URL = '/static/'
-STATIC_ROOT = BASE_DIR / 'staticfiles'
 
-# Stop the W004 warning by only adding the directory if it exists
+# Using the Absolute Path confirmed by your Render Shell 'pwd'
+STATIC_ROOT = '/opt/render/project/src/staticfiles'
+
+# Only add LOCAL_STATIC_PATH if the directory actually exists
 STATICFILES_DIRS = []
 LOCAL_STATIC_PATH = BASE_DIR / 'static'
 if LOCAL_STATIC_PATH.exists():
     STATICFILES_DIRS.append(str(LOCAL_STATIC_PATH))
 
-# Storage configuration for Django 4.2+ and Django 6.0
+# Storage configuration for Django 6.0
 STORAGES = {
     "default": {
         "BACKEND": "django.core.files.storage.FileSystemStorage",
@@ -122,6 +124,10 @@ STORAGES = {
         "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
     },
 }
+
+# Important WhiteNoise flags for stability
+WHITENOISE_MANIFEST_STRICT = False
+WHITENOISE_USE_FINDERS = True
 
 # Media files
 MEDIA_URL = '/media/'
