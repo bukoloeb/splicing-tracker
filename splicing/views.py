@@ -16,7 +16,7 @@ import pytz
 from datetime import timedelta, date
 from weasyprint import HTML
 from openpyxl import Workbook
-
+from django.contrib.auth import views as auth_views
 # --- 1. Corrected Model Imports (Forms removed from here) ---
 from .models import (
     SplicingJob,
