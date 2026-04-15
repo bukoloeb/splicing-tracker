@@ -133,10 +133,8 @@ class JobAssignmentForm(forms.ModelForm):
             field.widget.attrs.update({'class': 'w-full'})
 
 
-# =======================================================================
-# --- 3. FE STATUS UPDATE FORM ---
-# =======================================================================
 class FEStatusUpdateForm(forms.ModelForm):
+    # 1. Explicitly define ForeignKeys for the chained dropdown logic
     pop_location_fk = forms.ModelChoiceField(
         queryset=PopLocation.objects.all(),
         required=False,
@@ -148,7 +146,15 @@ class FEStatusUpdateForm(forms.ModelForm):
         label="Target Switch"
     )
 
-    # We define these explicitly to ensure we can control the widget behavior
+    # 2. Explicitly define Port Number to ensure it captures FE input correctly
+    port_number = forms.CharField(
+        max_length=20,
+        required=False,
+        label="Target Port Number",
+        widget=forms.TextInput(attrs={'placeholder': 'e.g. Eth 1/1/2'})
+    )
+
+    # 3. Explicitly define FileFields for universal file acceptance
     trace_attachment = forms.FileField(
         required=False,
         label="OTDR Trace / Test Report"
@@ -173,13 +179,13 @@ class FEStatusUpdateForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        # 1. Custom status choices for Field Engineers
+        # Define status choices for the FE workflow
         self.fields['status'].choices = [
             (SplicingJob.JOB_IN_PROGRESS, 'Splicing In Progress'),
             (SplicingJob.SERVICE_DELIVERY_PENDING, 'Splicing Completed'),
         ]
 
-        # 2. Chained Dropdown Logic for PoP -> Switch
+        # Chained Dropdown Logic: PoP -> Switch
         pop_id = None
         if 'pop_location_fk' in self.data:
             try:
@@ -194,15 +200,15 @@ class FEStatusUpdateForm(forms.ModelForm):
                 pop_location_id=pop_id
             ).order_by('name')
 
-        # 3. Apply Styling and Universal File Acceptance
+        # Apply Global Styling and File Acceptance
         for name, field in self.fields.items():
-            # Standard Tailwind width
+            # Apply Tailwind base class
             field.widget.attrs.update({'class': 'w-full'})
 
-            # Remove browser-side file restrictions to allow any fiber test file type
+            # Universal file acceptance for OTDR/Trace files
             if isinstance(field, forms.FileField):
                 field.widget.attrs.update({
-                    'accept': '*',  # Allows PDFs, .sor files, images, etc.
+                    'accept': '*',
                     'class': 'w-full text-xs text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100'
                 })
 

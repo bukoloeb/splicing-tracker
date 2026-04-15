@@ -48,8 +48,6 @@
         </div>
     </div>
 
-    {% include 'splicing/includes/messages.html' %}
-
     {# --- 2. Filter Terminal --- #}
     <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
         <div class="px-6 py-3 bg-gray-900 border-b border-gray-800 flex items-center justify-between">
@@ -59,7 +57,7 @@
         <form method="get" class="p-6">
             <div class="grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
                 <div class="md:col-span-2">
-                    <label class="block text-[10px] font-black text-gray-400 uppercase mb-2 ml-1">Search Customer / Tracking</label>
+                    <label class="block text-[10px] font-black text-gray-400 uppercase mb-2 ml-1">Search Customer / Circuit / Project</label>
                     {{ filter_form.search_query }}
                 </div>
                 <div>
@@ -92,8 +90,9 @@
                     <thead>
                         <tr class="bg-white">
                             <th class="px-6 py-4 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">Entity & Reference</th>
+                            <th class="px-6 py-4 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest text-indigo-600">Circuit ID</th>
                             <th class="px-6 py-4 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">Project</th>
-                            <th class="px-6 py-4 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">Splicing Finished</th>
+                            <th class="px-6 py-4 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">Finished</th>
                             <th class="px-6 py-4 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">Status</th>
                             <th class="px-6 py-4 text-right"></th>
                         </tr>
@@ -111,11 +110,15 @@
                                     REF: {{ job.job_id }}
                                 </div>
                             </td>
+                            <td class="px-6 py-5 whitespace-nowrap">
+                                <span class="text-xs font-black text-indigo-700 bg-indigo-50 px-2 py-1 rounded">
+                                    {{ job.circuit_id|default:"NO CIRCUIT ID" }}
+                                </span>
+                            </td>
                             <td class="px-6 py-5 whitespace-nowrap text-xs font-bold text-gray-600 uppercase">
                                 {{ job.project_code|default:"----" }}
                             </td>
                             <td class="px-6 py-5 whitespace-nowrap text-[11px] font-bold text-gray-500">
-                                <i class="far fa-calendar-check mr-1 text-indigo-300"></i>
                                 {{ job.end_date|date:"M d, Y" }}
                             </td>
                             <td class="px-6 py-5 whitespace-nowrap">
@@ -127,17 +130,10 @@
                                 </span>
                             </td>
                             <td class="px-6 py-5 text-right">
-                                {% if job.status == 'JOB_PROVISIONED' or job.status == 'PROVISIONED' %}
-                                    <a href="{% url 'provisioning_job' job_id=job.job_id %}"
-                                       class="inline-flex items-center px-4 py-2 bg-white border border-gray-200 text-gray-400 text-[10px] font-black rounded-lg hover:bg-gray-900 hover:text-white transition-all uppercase tracking-widest">
-                                        Update Config
-                                    </a>
-                                {% else %}
-                                    <a href="{% url 'provisioning_job' job_id=job.job_id %}"
-                                       class="inline-flex items-center px-4 py-2 bg-indigo-600 text-white text-[10px] font-black rounded-lg hover:bg-indigo-700 hover:shadow-lg transition-all uppercase tracking-widest">
-                                        Initialize SD
-                                    </a>
-                                {% endif %}
+                                <a href="{% url 'provisioning_job' job_id=job.job_id %}"
+                                   class="inline-flex items-center px-4 py-2 {% if job.status == 'JOB_PROVISIONED' or job.status == 'PROVISIONED' %}bg-white border border-gray-200 text-gray-400{% else %}bg-indigo-600 text-white hover:bg-indigo-700 hover:shadow-lg{% endif %} text-[10px] font-black rounded-lg transition-all uppercase tracking-widest">
+                                    {% if job.status == 'JOB_PROVISIONED' or job.status == 'PROVISIONED' %}View Config{% else %}Initialize SD{% endif %}
+                                </a>
                             </td>
                         </tr>
                         {% endfor %}
