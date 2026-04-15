@@ -81,7 +81,7 @@ def is_advanced_reporter(user):
 
 
 # ====================================================================
-# 2. PERMISSION MIXINS (CRITICAL: Must be defined before views)
+# 2. PERMISSION MIXINS (CRITICAL: Defined before views use them)
 # ====================================================================
 
 class JobCreatorRequiredMixin(UserPassesTestMixin):
@@ -105,10 +105,11 @@ class AdvancedReporterRequiredMixin(UserPassesTestMixin):
 
 @login_required
 def custom_dashboard_redirect(request):
+    """Gatekeeper for first-time password changes and role-based entry."""
     user = request.user
     try:
         if hasattr(user, 'profile') and user.profile.must_change_password:
-            messages.warning(request, "Security Policy: You must change your password before continuing.")
+            messages.warning(request, "Security Policy: Please change your password before continuing.")
             return redirect('password_change')
     except Exception:
         pass
@@ -122,6 +123,7 @@ def custom_dashboard_redirect(request):
 
 
 class MyPasswordChangeView(auth_views.PasswordChangeView):
+    """Clears 'must_change_password' flag upon success."""
     success_url = reverse_lazy('password_change_done')
     template_name = 'registration/password_change_form.html'
 
@@ -130,12 +132,11 @@ class MyPasswordChangeView(auth_views.PasswordChangeView):
         if hasattr(self.request.user, 'profile'):
             self.request.user.profile.must_change_password = False
             self.request.user.profile.save()
-            messages.success(self.request, "Password updated successfully.")
         return response
 
 
 # ====================================================================
-# 4. CORE WORKFLOW VIEWS
+# 4. CORE JOB WORKFLOW VIEWS
 # ====================================================================
 
 class DashboardView(LoginRequiredMixin, ListView):
@@ -149,6 +150,7 @@ class DashboardView(LoginRequiredMixin, ListView):
         queryset = SplicingJob.objects.all().select_related('assigned_fe')
         filter_form = JobFilterForm(self.request.GET)
 
+        # Multi-Tenant Data Isolation
         if is_field_engineer(user) and not (is_manager(user) or is_technical_manager(user)):
             queryset = queryset.filter(assigned_fe=user)
         elif is_contractor(user) and not is_service_delivery(user):
@@ -182,21 +184,6 @@ class DashboardView(LoginRequiredMixin, ListView):
         return context
 
 
-class JobCreateView(LoginRequiredMixin, JobCreatorRequiredMixin, CreateView):
-    model = SplicingJob
-    form_class = SplicingJobCreationForm
-    template_name = 'splicing/job_create.html'
-
-    def form_valid(self, form):
-        form.instance.creator = self.request.user
-        form.instance.status = SplicingJob.MANAGER_ASSIGNED
-        form.instance.job_id = generate_job_id()
-        return super().form_valid(form)
-
-    def get_success_url(self):
-        return reverse('job_detail', kwargs={'job_id': self.object.job_id})
-
-
 class JobDetailView(LoginRequiredMixin, UserPassesTestMixin, DetailView):
     model = SplicingJob
     context_object_name = 'job'
@@ -205,6 +192,7 @@ class JobDetailView(LoginRequiredMixin, UserPassesTestMixin, DetailView):
     slug_url_kwarg = 'job_id'
 
     def test_func(self):
+        """Strict isolation to prevent cross-contractor data leakage."""
         user = self.request.user
         job = self.get_object()
         if user.is_superuser or is_manager(user) or is_service_delivery(user): return True
@@ -249,6 +237,7 @@ class FEStatusUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
             self.request.user) and job.assigned_fe == self.request.user and job.status != SplicingJob.JOB_PROVISIONED)
 
     def post(self, request, *args, **kwargs):
+        """Harden file and port number saving."""
         self.object = self.get_object()
         form = self.form_class(request.POST, request.FILES, instance=self.object)
         if form.is_valid():
@@ -256,13 +245,17 @@ class FEStatusUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
             if form.cleaned_data.get('status') == SplicingJob.SERVICE_DELIVERY_PENDING:
                 if not job.end_date: job.end_date = timezone.now()
             job.save()
-            messages.success(request, "Progress saved successfully.")
+            messages.success(request, "Engineering data committed successfully.")
             return HttpResponseRedirect(self.get_success_url())
         return self.render_to_response(self.get_context_data(form=form))
 
     def get_success_url(self):
         return reverse('job_detail', kwargs={'job_id': self.object.job_id})
 
+
+# ====================================================================
+# 5. REMAINING DASHBOARDS & UTILITIES
+# ====================================================================
 
 class ContractorDashboardView(LoginRequiredMixin, UserPassesTestMixin, ListView):
     model = SplicingJob
@@ -285,19 +278,12 @@ class ContractorDashboardView(LoginRequiredMixin, UserPassesTestMixin, ListView)
         company = getattr(self.request.user.profile, 'contractor_company_name', None)
         if company:
             qs = SplicingJob.objects.filter(splicing_contractor_company__iexact=company)
-            context.update({
-                'contractor_company': company,
-                'jobs_total': qs.count(),
-                'jobs_in_progress': qs.filter(status__in=['FE_ASSIGNED', 'IN_PROGRESS']).count(),
-                'jobs_completed_today': qs.filter(status__in=['SD_PENDING', 'PROVISIONED'],
-                                                  end_date__date=date.today()).count()
-            })
+            context.update({'contractor_company': company, 'jobs_total': qs.count(),
+                            'jobs_in_progress': qs.filter(status__in=['FE_ASSIGNED', 'IN_PROGRESS']).count(),
+                            'jobs_completed_today': qs.filter(status__in=['SD_PENDING', 'PROVISIONED'],
+                                                              end_date__date=date.today()).count()})
         return context
 
-
-# ====================================================================
-# 5. SERVICE DELIVERY & REPORTS
-# ====================================================================
 
 class ServiceDeliveryDashboardView(LoginRequiredMixin, UserPassesTestMixin, ListView):
     model = SplicingJob
@@ -315,6 +301,15 @@ class ServiceDeliveryDashboardView(LoginRequiredMixin, UserPassesTestMixin, List
             queryset = queryset.filter(Q(job_id__icontains=search) | Q(project_code__icontains=search) | Q(
                 customer_name__icontains=search) | Q(circuit_id__icontains=search))
         return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context.update({'jobs_pending_provisioning': SplicingJob.objects.filter(
+            status=SplicingJob.SERVICE_DELIVERY_PENDING).count(),
+                        'jobs_provisioned_today': SplicingJob.objects.filter(status=SplicingJob.JOB_PROVISIONED,
+                                                                             provisioning_record__configured_on__date=timezone.now().date()).count(),
+                        'filter_form': JobFilterForm(self.request.GET)})
+        return context
 
 
 class ProvisioningJobView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
@@ -356,18 +351,6 @@ class ProvisioningJobView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
         return super().post(request, *args, **kwargs)
 
 
-class TechnicalManagerReportView(LoginRequiredMixin, TemplateView):
-    template_name = 'splicing/technical_manager_report.html'
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        jobs_qs = SplicingJob.objects.all().select_related('assigned_fe')
-        # Simplified listing
-        context['jobs_list'] = jobs_qs.order_by('-start_date')[:100]
-        context['filter_form'] = JobFilterForm(self.request.GET)
-        return context
-
-
 class JobCloseoutView(LoginRequiredMixin, ManagerRequiredMixin, UpdateView):
     model = SplicingJob
     form_class = JobCloseoutForm
@@ -381,23 +364,7 @@ class JobCloseoutView(LoginRequiredMixin, ManagerRequiredMixin, UpdateView):
         messages.success(self.request, "Job archived.")
         return super().form_valid(form)
 
-    def get_success_url(self):
-        return reverse('job_detail', kwargs={'job_id': self.object.job_id})
-
-
-@login_required
-def load_switches(request):
-    switches = Switch.objects.filter(pop_location_id=request.GET.get('pop_id')).order_by('name')
-    return render(request, 'splicing/pop_switch_dropdown_list.html', {'switches': switches})
-
-
-class JobViewerView(LoginRequiredMixin, ListView):
-    model = SplicingJob
-    template_name = 'splicing/job_viewer_dashboard.html'
-    context_object_name = 'jobs'
-
-    def get_queryset(self): return SplicingJob.objects.exclude(status__in=['CLOSED_ARCHIVED', 'PROVISIONED']).order_by(
-        '-start_date')
+    def get_success_url(self): return reverse('job_detail', kwargs={'job_id': self.object.job_id})
 
 
 class JobAssignmentView(LoginRequiredMixin, ManagerRequiredMixin, UpdateView):
@@ -419,6 +386,20 @@ class JobAssignmentView(LoginRequiredMixin, ManagerRequiredMixin, UpdateView):
     def get_success_url(self): return reverse('job_detail', kwargs={'job_id': self.object.job_id})
 
 
+class JobCreateView(LoginRequiredMixin, JobCreatorRequiredMixin, CreateView):
+    model = SplicingJob
+    form_class = SplicingJobCreationForm
+    template_name = 'splicing/job_create.html'
+
+    def form_valid(self, form):
+        form.instance.creator = self.request.user
+        form.instance.status = SplicingJob.MANAGER_ASSIGNED
+        form.instance.job_id = generate_job_id()
+        return super().form_valid(form)
+
+    def get_success_url(self): return reverse('job_detail', kwargs={'job_id': self.object.job_id})
+
+
 class JobMetadataUpdateView(LoginRequiredMixin, UpdateView):
     model = SplicingJob
     form_class = JobMetadataUpdateForm
@@ -427,3 +408,29 @@ class JobMetadataUpdateView(LoginRequiredMixin, UpdateView):
     slug_url_kwarg = 'job_id'
 
     def get_success_url(self): return reverse('job_detail', kwargs={'job_id': self.object.job_id})
+
+
+@login_required
+def load_switches(request):
+    switches = Switch.objects.filter(pop_location_id=request.GET.get('pop_id')).order_by('name')
+    return render(request, 'splicing/pop_switch_dropdown_list.html', {'switches': switches})
+
+
+class JobViewerView(LoginRequiredMixin, ListView):
+    model = SplicingJob
+    template_name = 'splicing/job_viewer_dashboard.html'
+    context_object_name = 'jobs'
+
+    def get_queryset(self): return SplicingJob.objects.exclude(status__in=['CLOSED_ARCHIVED', 'PROVISIONED']).order_by(
+        '-start_date')
+
+
+class TechnicalManagerReportView(LoginRequiredMixin, TemplateView):
+    template_name = 'splicing/technical_manager_report.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        jobs_qs = SplicingJob.objects.all().select_related('assigned_fe')
+        context['jobs_list'] = jobs_qs.order_by('-start_date')[:100]
+        context['filter_form'] = JobFilterForm(self.request.GET)
+        return context
