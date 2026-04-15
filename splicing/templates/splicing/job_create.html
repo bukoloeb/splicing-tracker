@@ -28,12 +28,13 @@
                 </h3>
             </div>
             <div class="p-6 space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {{ form.customer_name|as_crispy_field }}
+                    {{ form.circuit_id|as_crispy_field }}
+                </div>
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                     {{ form.project_code|as_crispy_field }}
-                    {{ form.customer_name|as_crispy_field }}
                     {{ form.priority|as_crispy_field }}
-                </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {{ form.required_completion_date|as_crispy_field }}
                 </div>
                 {{ form.description|as_crispy_field }}
@@ -68,7 +69,6 @@
                     </h3>
                 </div>
                 <div class="p-6 space-y-4 text-gray-100">
-                    {# Custom styling for crispy fields inside dark cards usually requires custom CSS classes, but we keep standard for now #}
                     {{ form.pop_location_fk|as_crispy_field }}
                     {{ form.switch_fk|as_crispy_field }}
                     {{ form.port_number|as_crispy_field }}
@@ -129,7 +129,6 @@
     }
     .animate-fade-in { animation: fadeIn 0.5s ease-out forwards; }
 
-    /* Match the technical label style of previous pages */
     label {
         font-size: 10px !important;
         font-weight: 800 !important;
@@ -139,7 +138,6 @@
         margin-bottom: 0.5rem !important;
     }
 
-    /* Dark card input overrides */
     .bg-indigo-900 label { color: #a5b4fc !important; }
 </style>
 

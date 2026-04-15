@@ -70,7 +70,7 @@ class SplicingJobCreationForm(forms.ModelForm):
     class Meta:
         model = SplicingJob
         fields = [
-            'customer_name', 'project_code', 'contact_person', 'contact_number',
+            'customer_name', 'project_code', 'circuit_id', 'contact_person', 'contact_number',
             'alt_contact_person', 'alt_contact_number', 'required_completion_date',
             'priority', 'street_address', 'neighbourhood', 'city', 'province',
             'country', 'project_manager', 'civil_contractor_name', 'description',
@@ -101,6 +101,8 @@ class SplicingJobCreationForm(forms.ModelForm):
 
         if pop_id:
             self.fields['switch_fk'].queryset = Switch.objects.filter(pop_location_id=pop_id).order_by('name')
+
+
 
 
 # =======================================================================

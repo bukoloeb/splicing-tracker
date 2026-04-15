@@ -75,6 +75,13 @@ class SplicingJob(models.Model):
     # --- CORE JOB METADATA ---
     job_id = models.CharField(max_length=50, unique=True)
     project_code = models.CharField(max_length=50, blank=True)
+    circuit_id = models.CharField(
+        max_length=100,
+        unique=True,
+        null=True,
+        blank=True,
+        help_text="Enter the unique Circuit ID (e.g., LSK-FTTH-1234)"
+    )
     customer_name = models.CharField(max_length=100, blank=True, verbose_name="Customer Name")
     priority = models.IntegerField(choices=PRIORITY_CHOICES, default=2)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=JOB_DRAFT)
